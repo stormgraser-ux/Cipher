@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cipher — $B Dark Trap</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg-deep: #06060c;
+      --bg-surface: #0a0a14;
+      --bg-raised: #10101c;
+      --border: #1c1c30;
+      --border-dim: #131326;
+      --text-ghost: #2a2a44;
+      --text-muted: #484860;
+      --text-dim: #6a6a82;
+      --text-base: #9898b0;
+      --text-bright: #d0d0e0;
+      --accent: #6e6eaa;
+      --accent-mid: #8080c0;
+      --accent-bright: #a898ee;
+      --accent-glow: rgba(110, 110, 170, 0.12);
+      --green: #4ade80;
+      --green-glow: rgba(74, 222, 128, 0.3);
+      --red: #f87171;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg-deep);
+      font-family: 'IBM Plex Mono', 'Consolas', monospace;
+      color: var(--text-base);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background:
+        radial-gradient(ellipse at 25% 40%, rgba(110, 110, 170, 0.04) 0%, transparent 50%),
+        radial-gradient(ellipse at 75% 60%, rgba(90, 60, 140, 0.03) 0%, transparent 50%),
+        var(--bg-deep);
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      opacity: 0.022;
+      pointer-events: none;
+      z-index: 100;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+
+    .console {
+      width: 540px;
+      max-width: 94vw;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-dim);
+      border-radius: 4px;
+      overflow: hidden;
+      transition: border-color 0.6s ease, box-shadow 0.6s ease;
+    }
+
+    .console.playing {
+      border-color: var(--border);
+      box-shadow: 0 0 60px rgba(110, 110, 170, 0.06);
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px 10px;
+    }
+
+    .header-left { display: flex; align-items: baseline; gap: 10px; }
+    .logo { font-size: 15px; font-weight: 500; letter-spacing: 0.25em; color: var(--accent); }
+    .version { font-size: 10px; font-weight: 300; color: var(--text-muted); letter-spacing: 0.05em; }
+    .header-right { display: flex; align-items: center; gap: 8px; }
+
+    .led {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--text-ghost);
+      transition: all 0.4s ease;
+    }
+    .led.playing {
+      background: var(--green);
+      box-shadow: 0 0 10px var(--green-glow);
+      animation: led-pulse 2.5s ease-in-out infinite;
+    }
+    .led.error { background: var(--red); box-shadow: 0 0 10px rgba(248, 113, 113, 0.3); }
+
+    @keyframes led-pulse {
+      0%, 100% { box-shadow: 0 0 8px var(--green-glow); }
+      50% { box-shadow: 0 0 16px var(--green-glow); }
+    }
+
+    .state { font-size: 10px; font-weight: 400; color: var(--text-muted); letter-spacing: 0.12em; text-transform: uppercase; }
+
+    .track-info {
+      padding: 0 20px 14px;
+      font-size: 11px; font-weight: 300; color: var(--text-dim);
+      letter-spacing: 0.06em;
+      display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    }
+    .track-name { color: var(--text-base); font-weight: 400; }
+    .sep { color: var(--text-ghost); }
+
+    /* ── Section indicator ── */
+    .section-bar {
+      padding: 0 20px 12px;
+      display: flex; align-items: center; gap: 10px;
+    }
+
+    .section-label {
+      font-size: 12px; font-weight: 500; letter-spacing: 0.18em;
+      color: var(--accent-bright); text-transform: uppercase;
+      min-width: 100px;
+      transition: color 0.3s ease;
+    }
+    .section-label.dim { color: var(--text-ghost); }
+
+    .progress-track {
+      flex: 1; height: 3px;
+      background: var(--border-dim);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%; width: 0%;
+      background: linear-gradient(90deg, var(--accent), var(--accent-bright));
+      border-radius: 2px;
+      transition: width 0.3s linear;
+    }
+
+    .bar-counter {
+      font-size: 10px; font-weight: 400; color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+      min-width: 48px; text-align: right;
+    }
+
+    .viz-wrap {
+      position: relative;
+      margin: 0 20px;
+      height: 144px;
+      background: var(--bg-deep);
+      border: 1px solid var(--border-dim);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .console.playing .viz-wrap { box-shadow: inset 0 0 30px rgba(110, 110, 170, 0.04); }
+    .viz-wrap canvas { display: block; width: 100%; height: 100%; }
+    .viz-wrap::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: repeating-linear-gradient(0deg, transparent, transparent 1px, rgba(0,0,0,0.06) 1px, rgba(0,0,0,0.06) 2px);
+      pointer-events: none; z-index: 1;
+    }
+
+    .controls {
+      padding: 18px 20px 8px;
+      display: flex; flex-direction: column; gap: 16px;
+    }
+
+    .fader-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .fader-header label { font-size: 10px; font-weight: 400; color: var(--text-muted); letter-spacing: 0.14em; text-transform: uppercase; }
+    .fader-value { font-size: 12px; font-weight: 400; color: var(--accent); font-variant-numeric: tabular-nums; }
+
+    input[type="range"] {
+      -webkit-appearance: none; appearance: none;
+      width: 100%; height: 4px;
+      background: linear-gradient(to right, var(--accent) 0%, var(--accent) var(--fill, 70%), var(--border-dim) var(--fill, 70%), var(--border-dim) 100%);
+      border-radius: 2px; outline: none; cursor: pointer;
+      font-size: 16px;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 14px; height: 14px;
+      background: var(--accent-mid); border: 2px solid var(--accent-bright);
+      border-radius: 2px; cursor: pointer;
+      transition: background 0.15s, box-shadow 0.15s;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover {
+      background: var(--accent-bright); box-shadow: 0 0 10px var(--accent-glow);
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 14px; height: 14px;
+      background: var(--accent-mid); border: 2px solid var(--accent-bright);
+      border-radius: 2px; cursor: pointer;
+    }
+    input[type="range"]::-moz-range-track {
+      height: 4px; background: var(--border-dim); border-radius: 2px; border: none;
+    }
+
+    .transport { display: flex; gap: 10px; padding: 14px 20px 8px; }
+    .nav-row { display: flex; gap: 10px; padding: 0 20px 16px; }
+
+    .btn {
+      flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 10px 16px; font-family: inherit; font-size: 11px; font-weight: 500;
+      letter-spacing: 0.12em; color: var(--text-dim); background: var(--bg-raised);
+      border: 1px solid var(--border-dim); border-radius: 3px; cursor: pointer;
+      transition: all 0.2s ease; text-transform: uppercase;
+    }
+    .btn:hover:not(:disabled) { border-color: var(--border); color: var(--text-bright); }
+    .btn:hover:not(:disabled) .btn-icon { fill: var(--text-bright); }
+    .btn:active:not(:disabled) { transform: translateY(1px); }
+    .btn.active { border-color: var(--accent); color: var(--accent-bright); box-shadow: 0 0 14px var(--accent-glow); }
+    .btn.active .btn-icon { fill: var(--accent-bright); }
+    .btn:disabled { opacity: 0.25; cursor: not-allowed; }
+    .btn-icon { width: 12px; height: 12px; fill: var(--text-muted); transition: fill 0.2s ease; }
+    .btn-sm { padding: 7px 12px; font-size: 10px; }
+
+    .footer {
+      padding: 10px 20px; font-size: 9px; font-weight: 300; color: var(--text-ghost);
+      letter-spacing: 0.1em; text-transform: uppercase;
+      border-top: 1px solid var(--border-dim);
+      display: flex; align-items: center; gap: 6px;
+    }
+
+    .key-hint {
+      position: fixed; bottom: 16px; font-size: 9px; font-weight: 300;
+      color: var(--text-ghost); letter-spacing: 0.08em;
+    }
+    .key-hint kbd {
+      display: inline-block; padding: 1px 5px; background: var(--bg-raised);
+      border: 1px solid var(--border-dim); border-radius: 2px;
+      font-family: inherit; font-size: 9px; color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="console" id="console">
+    <header class="header">
+      <div class="header-left">
+        <h1 class="logo">CIPHER</h1>
+        <span class="version">v0.1</span>
+      </div>
+      <div class="header-right">
+        <span class="led" id="led"></span>
+        <span class="state" id="state">STOPPED</span>
+      </div>
+    </header>
+
+    <div class="track-info">
+      <span class="track-name">SB-DARK-TRAP</span>
+      <span class="sep">&middot;</span>
+      <span>C#m</span>
+      <span class="sep">&middot;</span>
+      <span id="bpm">140 BPM</span>
+      <span class="sep">&middot;</span>
+      <span>9 layers</span>
+      <span class="sep">&middot;</span>
+      <span>68 bars</span>
+    </div>
+
+    <div class="section-bar">
+      <span class="section-label dim" id="section-label">---</span>
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+      <span class="bar-counter" id="bar-counter">0 / 68</span>
+    </div>
+
+    <div class="viz-wrap">
+      <canvas id="viz"></canvas>
+    </div>
+
+    <div class="controls">
+      <div class="fader">
+        <div class="fader-header">
+          <label for="slider-volume">Volume</label>
+          <span class="fader-value" id="val-volume">0.70</span>
+        </div>
+        <input type="range" id="slider-volume" min="0" max="1" step="0.01" value="0.70">
+      </div>
+    </div>
+
+    <div class="transport">
+      <button id="btn-play" class="btn">
+        <svg class="btn-icon" viewBox="0 0 24 24"><polygon points="7,4 20,12 7,20"/></svg>
+        Play
+      </button>
+      <button id="btn-stop" class="btn" disabled>
+        <svg class="btn-icon" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1"/></svg>
+        Stop
+      </button>
+    </div>
+
+    <div class="nav-row">
+      <button id="btn-prev" class="btn btn-sm" disabled>
+        <svg class="btn-icon" viewBox="0 0 24 24"><polygon points="17,4 7,12 17,20"/></svg>
+        Prev
+      </button>
+      <button id="btn-next" class="btn btn-sm" disabled>
+        Next
+        <svg class="btn-icon" viewBox="0 0 24 24"><polygon points="7,4 17,12 7,20"/></svg>
+      </button>
+    </div>
+
+    <footer class="footer">
+      <span>tone.js</span>
+      <span class="sep">&middot;</span>
+      <span>sub drone + 808 accents</span>
+      <span class="sep">&middot;</span>
+      <span>half-time 140</span>
+    </footer>
+  </div>
+
+  <div class="key-hint"><kbd>Space</kbd> play / stop &nbsp; <kbd>&larr;</kbd> prev &nbsp; <kbd>&rarr;</kbd> next</div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "tone": "https://esm.run/tone"
+    }
+  }
+  </script>
+  <script type="module">
+    import * as Tone from "tone";
+    import * as engine from "../src/core/engine.js";
+    import { createMixer } from "../src/core/mixer.js";
+    import { createDarkTrapTrack } from "../src/tracks/sb-dark.js";
+
+    const $ = (id) => document.getElementById(id);
+    const btnPlay    = $("btn-play");
+    const btnStop    = $("btn-stop");
+    const btnPrev    = $("btn-prev");
+    const btnNext    = $("btn-next");
+    const sliderVol  = $("slider-volume");
+    const valVol     = $("val-volume");
+    const bpmEl      = $("bpm");
+    const stateEl    = $("state");
+    const ledEl      = $("led");
+    const consoleEl  = $("console");
+    const canvas     = $("viz");
+    const ctx        = canvas.getContext("2d");
+    const sectionEl  = $("section-label");
+    const progressEl = $("progress-fill");
+    const barCountEl = $("bar-counter");
+
+    let track = null;
+    let mixer = null;
+    let analyser = null;
+    let playing = false;
+    let sections = [];
+    let w = 0, h = 0;
+    let gradient = null;
+
+    function resizeCanvas() {
+      const rect = canvas.parentElement.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+      w = rect.width;
+      h = rect.height;
+
+      gradient = ctx.createLinearGradient(0, 0, 0, h);
+      gradient.addColorStop(0, "#b898ff");
+      gradient.addColorStop(0.45, "#6e6eaa");
+      gradient.addColorStop(1, "#34345a");
+    }
+
+    resizeCanvas();
+    new ResizeObserver(resizeCanvas).observe(canvas.parentElement);
+
+    function updateFill(el) {
+      const pct = ((el.value - el.min) / (el.max - el.min)) * 100;
+      el.style.setProperty("--fill", `${pct}%`);
+    }
+    updateFill(sliderVol);
+
+    function setState(s) {
+      stateEl.textContent = s.toUpperCase();
+      ledEl.className = "led";
+      if (s === "playing") ledEl.classList.add("playing");
+      else if (s === "error") ledEl.classList.add("error");
+      consoleEl.classList.toggle("playing", s === "playing");
+      btnPlay.classList.toggle("active", s === "playing");
+    }
+
+    function updateNavButtons() {
+      btnPrev.disabled = !playing;
+      btnNext.disabled = !playing;
+    }
+
+    function getCurrentBar() {
+      if (!engine.isReady()) return 0;
+      const pos = Tone.getTransport().position; // "bars:beats:sixteenths"
+      const parts = pos.split(":");
+      return parseInt(parts[0], 10);
+    }
+
+    function findSectionIndex(bar) {
+      for (let i = sections.length - 1; i >= 0; i--) {
+        if (bar >= sections[i].start) return i;
+      }
+      return 0;
+    }
+
+    function seekToSection(idx) {
+      if (!track || idx < 0 || idx >= sections.length) return;
+      const sec = sections[idx];
+
+      // Stop transport, reconfigure from target bar, restart
+      engine.stop();
+      Tone.getTransport().position = `${sec.start}m`;
+      track.start(sec.start);
+      track.setVolume(parseFloat(sliderVol.value));
+      engine.start();
+    }
+
+    async function initAndPlay(fromBar = 0) {
+      setState("init");
+      btnPlay.disabled = true;
+
+      try {
+        if (!track) {
+          await engine.init(140);
+          mixer = await createMixer();
+
+          analyser = new Tone.Analyser("fft", 64);
+          analyser.smoothing = 0.82;
+          mixer.master.connect(analyser);
+
+          track = createDarkTrapTrack(mixer);
+          sections = track.getSections();
+
+          track.onSectionChange((name) => {
+            if (name === "stopped") {
+              sectionEl.textContent = "COMPLETE";
+              sectionEl.classList.add("dim");
+              progressEl.style.width = "100%";
+              barCountEl.textContent = "68 / 68";
+
+              // Track auto-completed — stop the engine
+              engine.stop();
+              playing = false;
+              setState("stopped");
+              btnStop.disabled = true;
+              updateNavButtons();
+              return;
+            }
+            sectionEl.textContent = name.toUpperCase();
+            sectionEl.classList.remove("dim");
+          });
+        }
+
+        track.start(fromBar);
+        track.setVolume(parseFloat(sliderVol.value));
+
+        if (fromBar > 0) {
+          Tone.getTransport().position = `${fromBar}m`;
+        }
+        engine.start();
+        playing = true;
+
+        setState("playing");
+        btnPlay.disabled = false;
+        btnStop.disabled = false;
+        updateNavButtons();
+      } catch (err) {
+        console.error("Cipher init failed:", err);
+        setState("error");
+        stateEl.textContent = "ERROR";
+        btnPlay.disabled = false;
+      }
+    }
+
+    btnPlay.addEventListener("click", () => {
+      if (playing) return;
+      initAndPlay(0);
+    });
+
+    btnStop.addEventListener("click", () => {
+      if (!playing) return;
+      track.stop();
+      engine.stop();
+      playing = false;
+      setState("stopped");
+      btnStop.disabled = true;
+      updateNavButtons();
+      sectionEl.textContent = "---";
+      sectionEl.classList.add("dim");
+      progressEl.style.width = "0%";
+      barCountEl.textContent = "0 / 68";
+    });
+
+    btnPrev.addEventListener("click", () => {
+      if (!playing) return;
+      const bar = getCurrentBar();
+      const idx = findSectionIndex(bar);
+      // If we're more than 2 bars into the current section, restart it.
+      // Otherwise go to the previous section.
+      const sec = sections[idx];
+      const targetIdx = (bar - sec.start > 2 && idx >= 0) ? idx : Math.max(0, idx - 1);
+      seekToSection(targetIdx);
+    });
+
+    btnNext.addEventListener("click", () => {
+      if (!playing) return;
+      const bar = getCurrentBar();
+      const idx = findSectionIndex(bar);
+      if (idx < sections.length - 1) {
+        seekToSection(idx + 1);
+      }
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.target !== document.body) return;
+      if (e.code === "Space") {
+        e.preventDefault();
+        if (playing) btnStop.click();
+        else btnPlay.click();
+      } else if (e.code === "ArrowLeft" && playing) {
+        e.preventDefault();
+        btnPrev.click();
+      } else if (e.code === "ArrowRight" && playing) {
+        e.preventDefault();
+        btnNext.click();
+      }
+    });
+
+    sliderVol.addEventListener("input", (e) => {
+      const v = parseFloat(e.target.value);
+      valVol.textContent = v.toFixed(2);
+      updateFill(e.target);
+      track?.setVolume(v);
+    });
+
+    // ── Progress / bar counter polling ──
+    setInterval(() => {
+      if (engine.isReady()) {
+        bpmEl.textContent = `${Math.round(engine.getBPM())} BPM`;
+      }
+      if (playing) {
+        const bar = getCurrentBar();
+        const clamped = Math.min(bar, 68);
+        const pct = (clamped / 68) * 100;
+        progressEl.style.width = `${pct}%`;
+        barCountEl.textContent = `${clamped} / 68`;
+      }
+    }, 250);
+
+    // ── Visualizer ──
+    const BAR_COUNT = 48;
+    const BAR_GAP = 2;
+
+    function draw() {
+      requestAnimationFrame(draw);
+      if (!w || !h) return;
+
+      ctx.fillStyle = "#07070e";
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.strokeStyle = "#111122";
+      ctx.lineWidth = 0.5;
+      for (let i = 1; i < 5; i++) {
+        const y = (h / 5) * i;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+        ctx.stroke();
+      }
+
+      const barW = (w - BAR_GAP * (BAR_COUNT + 1)) / BAR_COUNT;
+
+      if (analyser && playing) {
+        const values = analyser.getValue();
+        const step = Math.max(1, Math.floor(values.length / BAR_COUNT));
+
+        ctx.fillStyle = gradient;
+        for (let i = 0; i < BAR_COUNT; i++) {
+          const idx = Math.min(i * step, values.length - 1);
+          const db = values[idx];
+          const norm = Math.max(0, Math.min(1, (db + 100) / 80));
+          const barH = norm * h * 0.92;
+          const x = BAR_GAP + i * (barW + BAR_GAP);
+          ctx.fillRect(x, h - barH, barW, barH);
+        }
+      } else {
+        ctx.fillStyle = "rgba(26, 26, 48, 0.35)";
+        for (let i = 0; i < BAR_COUNT; i++) {
+          const barH = Math.max(1, Math.random() * h * 0.04);
+          const x = BAR_GAP + i * (barW + BAR_GAP);
+          ctx.fillRect(x, h - barH, barW, barH);
+        }
+      }
+    }
+
+    draw();
+  </script>
+</body>
+</html>

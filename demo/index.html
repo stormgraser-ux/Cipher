@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cipher — Track Audition</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg-deep: #06060c;
+      --bg-surface: #0a0a14;
+      --bg-raised: #10101c;
+      --bg-input: #0e0e1a;
+      --border: #1c1c30;
+      --border-dim: #131326;
+      --text-ghost: #2a2a44;
+      --text-muted: #484860;
+      --text-dim: #6a6a82;
+      --text-base: #9898b0;
+      --text-bright: #d0d0e0;
+      --accent: #6e6eaa;
+      --accent-mid: #8080c0;
+      --accent-bright: #a898ee;
+      --accent-glow: rgba(110, 110, 170, 0.12);
+      --green: #4ade80;
+      --green-glow: rgba(74, 222, 128, 0.3);
+      --red: #f87171;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg-deep);
+      font-family: 'IBM Plex Mono', 'Consolas', monospace;
+      color: var(--text-base);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background:
+        radial-gradient(ellipse at 25% 40%, rgba(110, 110, 170, 0.04) 0%, transparent 50%),
+        radial-gradient(ellipse at 75% 60%, rgba(90, 60, 140, 0.03) 0%, transparent 50%),
+        var(--bg-deep);
+    }
+
+    /* Subtle noise overlay */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      opacity: 0.022;
+      pointer-events: none;
+      z-index: 100;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+
+    /* ── Console panel ── */
+
+    .console {
+      width: 540px;
+      max-width: 94vw;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-dim);
+      border-radius: 4px;
+      overflow: hidden;
+      transition: border-color 0.6s ease, box-shadow 0.6s ease;
+    }
+
+    .console.playing {
+      border-color: var(--border);
+      box-shadow: 0 0 60px rgba(110, 110, 170, 0.06);
+    }
+
+    /* ── Header ── */
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px 10px;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+    }
+
+    .logo {
+      font-size: 15px;
+      font-weight: 500;
+      letter-spacing: 0.25em;
+      color: var(--accent);
+    }
+
+    .version {
+      font-size: 10px;
+      font-weight: 300;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .led {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--text-ghost);
+      transition: all 0.4s ease;
+    }
+
+    .led.playing {
+      background: var(--green);
+      box-shadow: 0 0 10px var(--green-glow);
+      animation: led-pulse 2.5s ease-in-out infinite;
+    }
+
+    .led.error {
+      background: var(--red);
+      box-shadow: 0 0 10px rgba(248, 113, 113, 0.3);
+    }
+
+    @keyframes led-pulse {
+      0%, 100% { box-shadow: 0 0 8px var(--green-glow); }
+      50% { box-shadow: 0 0 16px var(--green-glow); }
+    }
+
+    .state {
+      font-size: 10px;
+      font-weight: 400;
+      color: var(--text-muted);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    /* ── Track info ── */
+
+    .track-info {
+      padding: 0 20px 14px;
+      font-size: 11px;
+      font-weight: 300;
+      color: var(--text-dim);
+      letter-spacing: 0.06em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .track-name {
+      color: var(--text-base);
+      font-weight: 400;
+    }
+
+    .sep { color: var(--text-ghost); }
+
+    /* ── Visualizer ── */
+
+    .viz-wrap {
+      position: relative;
+      margin: 0 20px;
+      height: 144px;
+      background: var(--bg-deep);
+      border: 1px solid var(--border-dim);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .console.playing .viz-wrap {
+      box-shadow: inset 0 0 30px rgba(110, 110, 170, 0.04);
+    }
+
+    .viz-wrap canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* CRT scanlines */
+    .viz-wrap::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 1px,
+        rgba(0, 0, 0, 0.06) 1px,
+        rgba(0, 0, 0, 0.06) 2px
+      );
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* Intensity bar — thin line under viz */
+    .intensity-bar {
+      height: 2px;
+      background: var(--border-dim);
+      margin: 0 20px;
+    }
+
+    .intensity-fill {
+      height: 100%;
+      width: 50%;
+      background: linear-gradient(90deg, var(--accent), var(--accent-bright));
+      transition: width 0.15s ease;
+    }
+
+    /* ── Controls ── */
+
+    .controls {
+      padding: 18px 20px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .fader-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .fader-header label {
+      font-size: 10px;
+      font-weight: 400;
+      color: var(--text-muted);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .fader-value {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--accent);
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.02em;
+    }
+
+    /* Range slider */
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 4px;
+      background: linear-gradient(
+        to right,
+        var(--accent) 0%,
+        var(--accent) var(--fill, 50%),
+        var(--border-dim) var(--fill, 50%),
+        var(--border-dim) 100%
+      );
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+      font-size: 16px; /* prevent iOS auto-zoom */
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      background: var(--accent-mid);
+      border: 2px solid var(--accent-bright);
+      border-radius: 2px;
+      cursor: pointer;
+      transition: background 0.15s, box-shadow 0.15s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      background: var(--accent-bright);
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      background: var(--accent-mid);
+      border: 2px solid var(--accent-bright);
+      border-radius: 2px;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-moz-range-track {
+      height: 4px;
+      background: var(--border-dim);
+      border-radius: 2px;
+      border: none;
+    }
+
+    /* ── Transport ── */
+
+    .transport {
+      display: flex;
+      gap: 10px;
+      padding: 14px 20px 16px;
+    }
+
+    .btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 16px;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      color: var(--text-dim);
+      background: var(--bg-raised);
+      border: 1px solid var(--border-dim);
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-transform: uppercase;
+    }
+
+    .btn:hover:not(:disabled) {
+      border-color: var(--border);
+      color: var(--text-bright);
+    }
+
+    .btn:hover:not(:disabled) .btn-icon {
+      fill: var(--text-bright);
+    }
+
+    .btn:active:not(:disabled) {
+      transform: translateY(1px);
+    }
+
+    .btn.active {
+      border-color: var(--accent);
+      color: var(--accent-bright);
+      box-shadow: 0 0 14px var(--accent-glow);
+    }
+
+    .btn.active .btn-icon {
+      fill: var(--accent-bright);
+    }
+
+    .btn:disabled {
+      opacity: 0.25;
+      cursor: not-allowed;
+    }
+
+    .btn-icon {
+      width: 12px;
+      height: 12px;
+      fill: var(--text-muted);
+      transition: fill 0.2s ease;
+    }
+
+    /* ── Footer ── */
+
+    .footer {
+      padding: 10px 20px;
+      font-size: 9px;
+      font-weight: 300;
+      color: var(--text-ghost);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      border-top: 1px solid var(--border-dim);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* ── Keyboard hint ── */
+
+    .key-hint {
+      position: fixed;
+      bottom: 16px;
+      font-size: 9px;
+      font-weight: 300;
+      color: var(--text-ghost);
+      letter-spacing: 0.08em;
+    }
+
+    .key-hint kbd {
+      display: inline-block;
+      padding: 1px 5px;
+      background: var(--bg-raised);
+      border: 1px solid var(--border-dim);
+      border-radius: 2px;
+      font-family: inherit;
+      font-size: 9px;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="console" id="console">
+    <header class="header">
+      <div class="header-left">
+        <h1 class="logo">CIPHER</h1>
+        <span class="version">v0.1</span>
+      </div>
+      <div class="header-right">
+        <span class="led" id="led"></span>
+        <span class="state" id="state">STOPPED</span>
+      </div>
+    </header>
+
+    <div class="track-info">
+      <span class="track-name">TCB-SALVAGE-OP</span>
+      <span class="sep">&middot;</span>
+      <span>Cm</span>
+      <span class="sep">&middot;</span>
+      <span id="bpm">140 BPM</span>
+      <span class="sep">&middot;</span>
+      <span>7 layers</span>
+    </div>
+
+    <div class="viz-wrap">
+      <canvas id="viz"></canvas>
+    </div>
+
+    <div class="intensity-bar">
+      <div class="intensity-fill" id="intensity-fill"></div>
+    </div>
+
+    <div class="controls">
+      <div class="fader">
+        <div class="fader-header">
+          <label for="slider-intensity">Intensity</label>
+          <span class="fader-value" id="val-intensity">0.50</span>
+        </div>
+        <input type="range" id="slider-intensity" min="0" max="1" step="0.01" value="0.50">
+      </div>
+      <div class="fader">
+        <div class="fader-header">
+          <label for="slider-volume">Volume</label>
+          <span class="fader-value" id="val-volume">0.70</span>
+        </div>
+        <input type="range" id="slider-volume" min="0" max="1" step="0.01" value="0.70">
+      </div>
+    </div>
+
+    <div class="transport">
+      <button id="btn-play" class="btn">
+        <svg class="btn-icon" viewBox="0 0 24 24"><polygon points="7,4 20,12 7,20"/></svg>
+        Play
+      </button>
+      <button id="btn-stop" class="btn" disabled>
+        <svg class="btn-icon" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1"/></svg>
+        Stop
+      </button>
+    </div>
+
+    <footer class="footer">
+      <span>tone.js</span>
+      <span class="sep">&middot;</span>
+      <span>web audio</span>
+      <span class="sep">&middot;</span>
+      <span>procedural</span>
+    </footer>
+  </div>
+
+  <div class="key-hint"><kbd>Space</kbd> play / stop</div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "tone": "https://esm.run/tone"
+    }
+  }
+  </script>
+  <script type="module">
+    import * as Tone from "tone";
+    import * as engine from "../src/core/engine.js";
+    import { createMixer } from "../src/core/mixer.js";
+    import { createSalvageTrack } from "../src/tracks/tcb-salvage.js";
+
+    /* ── DOM ── */
+    const $ = (id) => document.getElementById(id);
+    const btnPlay      = $("btn-play");
+    const btnStop      = $("btn-stop");
+    const sliderInt    = $("slider-intensity");
+    const sliderVol    = $("slider-volume");
+    const valInt       = $("val-intensity");
+    const valVol       = $("val-volume");
+    const bpmEl        = $("bpm");
+    const stateEl      = $("state");
+    const ledEl        = $("led");
+    const consoleEl    = $("console");
+    const intFill      = $("intensity-fill");
+    const canvas       = $("viz");
+    const ctx          = canvas.getContext("2d");
+
+    /* ── State ── */
+    let track = null;
+    let mixer = null;
+    let analyser = null;
+    let playing = false;
+    let w = 0, h = 0;
+    let gradient = null;
+
+    /* ── Canvas setup (retina-aware) ── */
+    function resizeCanvas() {
+      const rect = canvas.parentElement.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+      w = rect.width;
+      h = rect.height;
+
+      gradient = ctx.createLinearGradient(0, 0, 0, h);
+      gradient.addColorStop(0, "#b898ff");
+      gradient.addColorStop(0.45, "#6e6eaa");
+      gradient.addColorStop(1, "#34345a");
+    }
+
+    resizeCanvas();
+    new ResizeObserver(resizeCanvas).observe(canvas.parentElement);
+
+    /* ── Slider fill tracking ── */
+    function updateFill(el) {
+      const pct = ((el.value - el.min) / (el.max - el.min)) * 100;
+      el.style.setProperty("--fill", `${pct}%`);
+    }
+    updateFill(sliderInt);
+    updateFill(sliderVol);
+
+    /* ── State management ── */
+    function setState(s) {
+      stateEl.textContent = s.toUpperCase();
+      ledEl.className = "led";
+      if (s === "playing") ledEl.classList.add("playing");
+      else if (s === "error") ledEl.classList.add("error");
+      consoleEl.classList.toggle("playing", s === "playing");
+      btnPlay.classList.toggle("active", s === "playing");
+    }
+
+    /* ── Transport: Play ── */
+    btnPlay.addEventListener("click", async () => {
+      if (playing) return;
+      setState("init");
+      btnPlay.disabled = true;
+
+      try {
+        if (!track) {
+          await engine.init(140);
+          mixer = await createMixer();
+
+          // Tap master output for FFT visualization
+          analyser = new Tone.Analyser("fft", 64);
+          analyser.smoothing = 0.82;
+          mixer.master.connect(analyser);
+
+          track = createSalvageTrack(mixer);
+          track.setVolume(parseFloat(sliderVol.value));
+          track.setIntensity(parseFloat(sliderInt.value));
+        }
+
+        track.start();
+        engine.start();
+        playing = true;
+
+        setState("playing");
+        btnPlay.disabled = false;
+        btnStop.disabled = false;
+      } catch (err) {
+        console.error("Cipher init failed:", err);
+        setState("error");
+        stateEl.textContent = "ERROR";
+        btnPlay.disabled = false;
+      }
+    });
+
+    /* ── Transport: Stop ── */
+    btnStop.addEventListener("click", () => {
+      if (!playing) return;
+      engine.stop();
+      track.stop();
+      playing = false;
+      setState("stopped");
+      btnStop.disabled = true;
+    });
+
+    /* ── Keyboard shortcut ── */
+    document.addEventListener("keydown", (e) => {
+      if (e.code === "Space" && e.target === document.body) {
+        e.preventDefault();
+        if (playing) btnStop.click();
+        else btnPlay.click();
+      }
+    });
+
+    /* ── Sliders ── */
+    sliderInt.addEventListener("input", (e) => {
+      const v = parseFloat(e.target.value);
+      valInt.textContent = v.toFixed(2);
+      updateFill(e.target);
+      intFill.style.width = `${v * 100}%`;
+      track?.setIntensity(v);
+    });
+
+    sliderVol.addEventListener("input", (e) => {
+      const v = parseFloat(e.target.value);
+      valVol.textContent = v.toFixed(2);
+      updateFill(e.target);
+      track?.setVolume(v);
+    });
+
+    /* ── BPM readout ── */
+    setInterval(() => {
+      if (engine.isReady()) {
+        bpmEl.textContent = `${Math.round(engine.getBPM())} BPM`;
+      }
+    }, 500);
+
+    /* ── Visualizer ── */
+    const BAR_COUNT = 48;
+    const BAR_GAP = 2;
+
+    function draw() {
+      requestAnimationFrame(draw);
+      if (!w || !h) return;
+
+      // Clear
+      ctx.fillStyle = "#07070e";
+      ctx.fillRect(0, 0, w, h);
+
+      // Grid lines
+      ctx.strokeStyle = "#111122";
+      ctx.lineWidth = 0.5;
+      for (let i = 1; i < 5; i++) {
+        const y = (h / 5) * i;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+        ctx.stroke();
+      }
+
+      const barW = (w - BAR_GAP * (BAR_COUNT + 1)) / BAR_COUNT;
+
+      if (analyser && playing) {
+        const values = analyser.getValue();
+        const step = Math.max(1, Math.floor(values.length / BAR_COUNT));
+
+        ctx.fillStyle = gradient;
+        for (let i = 0; i < BAR_COUNT; i++) {
+          const idx = Math.min(i * step, values.length - 1);
+          const db = values[idx];
+          // Normalize roughly -100..0 dB → 0..1
+          const norm = Math.max(0, Math.min(1, (db + 100) / 80));
+          const barH = norm * h * 0.92;
+          const x = BAR_GAP + i * (barW + BAR_GAP);
+          ctx.fillRect(x, h - barH, barW, barH);
+        }
+      } else {
+        // Idle: subtle noise floor — equipment is on, nothing playing
+        ctx.fillStyle = "rgba(26, 26, 48, 0.35)";
+        for (let i = 0; i < BAR_COUNT; i++) {
+          const barH = Math.max(1, Math.random() * h * 0.04);
+          const x = BAR_GAP + i * (barW + BAR_GAP);
+          ctx.fillRect(x, h - barH, barW, barH);
+        }
+      }
+    }
+
+    draw();
+  </script>
+</body>
+</html>

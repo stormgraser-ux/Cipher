@@ -1,0 +1,9 @@
+{
+  "name": "cipher",
+  "version": "0.1.0",
+  "description": "Coded music engine — procedural soundtracks for Stormgraser's games",
+  "type": "module",
+  "dependencies": {
+    "tone": "^15.0.4"
+  }
+}
