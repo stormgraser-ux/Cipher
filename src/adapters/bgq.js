@@ -1,6 +1,8 @@
 import * as Tone from "tone";
 import * as engine from "../core/engine.js";
 import { createMixer } from "../core/mixer.js";
+import { createSfxPlayer } from "../core/sfx.js";
+import { registerAll } from "../sfx/presets.js";
 import { createGardenTrack } from "../tracks/bgq-garden.js";
 
 // BGQ adapter — global object, CDN script tag pattern
@@ -17,6 +19,7 @@ import { createGardenTrack } from "../tracks/bgq-garden.js";
 const BgqAudio = {
   _mixer: null,
   _track: null,
+  _sfxPlayer: null,
   _bgmOn: true,
   _musicVol: 0.7,
   _sfxVol: 0.7,
@@ -33,6 +36,9 @@ const BgqAudio = {
     await engine.init(95); // BGQ garden theme BPM
     this._mixer = await createMixer();
     this._track = createGardenTrack(this._mixer);
+    this._sfxPlayer = createSfxPlayer(this._mixer);
+    registerAll(this._sfxPlayer);
+    this._sfxPlayer.setVolume(sfxVolume);
 
     this.setBgmVolume(musicVolume);
 
@@ -41,10 +47,8 @@ const BgqAudio = {
     engine.start();
   },
 
-  sfx(type) {
-    // TODO: Implement SFX triggers
-    // Types: chime, roll, pick, success, play, ability, turn, click, error, sparkle
-    void type;
+  sfx(type, opts) {
+    this._sfxPlayer?.play(type, opts);
   },
 
   setBgmVolume(v) {
@@ -54,7 +58,7 @@ const BgqAudio = {
 
   setSfxVolume(v) {
     this._sfxVol = v;
-    // TODO: Route SFX through separate channel
+    this._sfxPlayer?.setVolume(v);
   },
 
   toggleBgm() {

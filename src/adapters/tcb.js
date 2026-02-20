@@ -1,11 +1,15 @@
 import * as engine from "../core/engine.js";
 import { createMixer } from "../core/mixer.js";
+import { createSfxPlayer } from "../core/sfx.js";
+import { registerAll } from "../sfx/presets.js";
 import { createSalvageTrack } from "../tracks/tcb-salvage.js";
 
 export async function initCipherAudio(ctx) {
   await engine.init(140);
   const mixer = await createMixer();
   const track = createSalvageTrack(mixer);
+  const sfxPlayer = createSfxPlayer(mixer);
+  registerAll(sfxPlayer);
 
   let running = false;
 
@@ -52,12 +56,40 @@ export async function initCipherAudio(ctx) {
     track.setVolume(v);
   }
 
+  function sfx(name, opts) {
+    sfxPlayer.play(name, opts);
+  }
+
+  function sfxLoop(name, opts) {
+    sfxPlayer.startLoop(name, opts);
+  }
+
+  function sfxStop(name) {
+    sfxPlayer.stopLoop(name);
+  }
+
+  function setSfxVolume(v) {
+    sfxPlayer.setVolume(v);
+  }
+
   function dispose() {
     stop();
     track.dispose();
+    sfxPlayer.dispose();
     mixer.dispose();
     engine.dispose();
   }
 
-  return { start, stop, tick, setIntensity, setMasterVolume, dispose };
+  return {
+    start,
+    stop,
+    tick,
+    setIntensity,
+    setMasterVolume,
+    sfx,
+    sfxLoop,
+    sfxStop,
+    setSfxVolume,
+    dispose,
+  };
 }

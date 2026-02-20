@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cipher — $B Dark Trap</title>
+  <title>Cipher Studio — $B Dark Trap</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -14,6 +14,9 @@
       --bg-deep: #06060c;
       --bg-surface: #0a0a14;
       --bg-raised: #10101c;
+      --bg-cell: #0c0c18;
+      --bg-cell-alt: #0e0e1a;
+      --bg-cell-active: #1a1a36;
       --border: #1c1c30;
       --border-dim: #131326;
       --text-ghost: #2a2a44;
@@ -26,8 +29,18 @@
       --accent-bright: #a898ee;
       --accent-glow: rgba(110, 110, 170, 0.12);
       --green: #4ade80;
+      --green-dim: #2a8a50;
       --green-glow: rgba(74, 222, 128, 0.3);
+      --green-cell: rgba(74, 222, 128, 0.08);
       --red: #f87171;
+      --red-dim: #7f2020;
+      --yellow: #fbbf24;
+      --yellow-dim: #7f6a12;
+      --orange: #f97316;
+      --step-on: #7c6cc8;
+      --step-on-bright: #9b8ae0;
+      --step-note: #6e8ecc;
+      --step-vel: #5eaa8e;
     }
 
     html, body {
@@ -40,12 +53,13 @@
 
     body {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: center;
       min-height: 100vh;
+      padding: 20px 0 60px;
       background:
-        radial-gradient(ellipse at 25% 40%, rgba(110, 110, 170, 0.04) 0%, transparent 50%),
-        radial-gradient(ellipse at 75% 60%, rgba(90, 60, 140, 0.03) 0%, transparent 50%),
+        radial-gradient(ellipse at 25% 20%, rgba(110, 110, 170, 0.04) 0%, transparent 50%),
+        radial-gradient(ellipse at 75% 40%, rgba(90, 60, 140, 0.03) 0%, transparent 50%),
         var(--bg-deep);
     }
 
@@ -60,8 +74,8 @@
     }
 
     .console {
-      width: 540px;
-      max-width: 94vw;
+      width: 920px;
+      max-width: 96vw;
       background: var(--bg-surface);
       border: 1px solid var(--border-dim);
       border-radius: 4px;
@@ -74,16 +88,21 @@
       box-shadow: 0 0 60px rgba(110, 110, 170, 0.06);
     }
 
+    /* ── Header ── */
     .header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 16px 20px 10px;
+      padding: 14px 20px 8px;
     }
 
     .header-left { display: flex; align-items: baseline; gap: 10px; }
-    .logo { font-size: 15px; font-weight: 500; letter-spacing: 0.25em; color: var(--accent); }
-    .version { font-size: 10px; font-weight: 300; color: var(--text-muted); letter-spacing: 0.05em; }
+    .logo { font-size: 14px; font-weight: 600; letter-spacing: 0.3em; color: var(--accent); }
+    .tag {
+      font-size: 9px; font-weight: 500; letter-spacing: 0.15em;
+      color: var(--bg-surface); background: var(--accent);
+      padding: 2px 6px; border-radius: 2px; text-transform: uppercase;
+    }
     .header-right { display: flex; align-items: center; gap: 8px; }
 
     .led {
@@ -103,20 +122,20 @@
       50% { box-shadow: 0 0 16px var(--green-glow); }
     }
 
-    .state { font-size: 10px; font-weight: 400; color: var(--text-muted); letter-spacing: 0.12em; text-transform: uppercase; }
+    .state { font-size: 10px; font-weight: 500; color: var(--text-dim); letter-spacing: 0.12em; text-transform: uppercase; }
 
     .track-info {
-      padding: 0 20px 14px;
-      font-size: 11px; font-weight: 300; color: var(--text-dim);
+      padding: 0 20px 12px;
+      font-size: 11px; font-weight: 300; color: var(--text-base);
       letter-spacing: 0.06em;
       display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
     }
-    .track-name { color: var(--text-base); font-weight: 400; }
-    .sep { color: var(--text-ghost); }
+    .track-name { color: var(--text-bright); font-weight: 400; }
+    .sep { color: var(--text-muted); }
 
     /* ── Section indicator ── */
     .section-bar {
-      padding: 0 20px 12px;
+      padding: 0 20px 10px;
       display: flex; align-items: center; gap: 10px;
     }
 
@@ -126,7 +145,7 @@
       min-width: 100px;
       transition: color 0.3s ease;
     }
-    .section-label.dim { color: var(--text-ghost); }
+    .section-label.dim { color: var(--text-muted); }
 
     .progress-track {
       flex: 1; height: 3px;
@@ -143,15 +162,16 @@
     }
 
     .bar-counter {
-      font-size: 10px; font-weight: 400; color: var(--text-muted);
+      font-size: 11px; font-weight: 400; color: var(--text-dim);
       font-variant-numeric: tabular-nums;
       min-width: 48px; text-align: right;
     }
 
+    /* ── Visualizer ── */
     .viz-wrap {
       position: relative;
       margin: 0 20px;
-      height: 144px;
+      height: 100px;
       background: var(--bg-deep);
       border: 1px solid var(--border-dim);
       border-radius: 2px;
@@ -166,24 +186,55 @@
       pointer-events: none; z-index: 1;
     }
 
-    .controls {
-      padding: 18px 20px 8px;
-      display: flex; flex-direction: column; gap: 16px;
+    /* ── Transport ── */
+    .transport-row {
+      display: flex; gap: 8px; padding: 12px 20px 6px;
+      align-items: center;
     }
 
-    .fader-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-    .fader-header label { font-size: 10px; font-weight: 400; color: var(--text-muted); letter-spacing: 0.14em; text-transform: uppercase; }
-    .fader-value { font-size: 12px; font-weight: 400; color: var(--accent); font-variant-numeric: tabular-nums; }
+    .controls-inline {
+      display: flex; align-items: center; gap: 8px; flex: 1;
+    }
+
+    .controls-inline label {
+      font-size: 10px; color: var(--text-dim); letter-spacing: 0.1em;
+      text-transform: uppercase; white-space: nowrap;
+    }
+
+    .controls-inline input[type="range"] { width: 100px; }
+
+    .controls-inline .fader-value {
+      font-size: 10px; font-weight: 400; color: var(--accent);
+      font-variant-numeric: tabular-nums; min-width: 32px;
+    }
+
+    .btn {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 8px 16px; font-family: inherit; font-size: 11px; font-weight: 500;
+      letter-spacing: 0.1em; color: var(--text-base); background: var(--bg-raised);
+      border: 1px solid var(--border); border-radius: 3px; cursor: pointer;
+      transition: all 0.15s ease; text-transform: uppercase; white-space: nowrap;
+    }
+    .btn:hover:not(:disabled) { border-color: var(--accent); color: var(--text-bright); background: rgba(110, 110, 170, 0.08); }
+    .btn:hover:not(:disabled) .btn-icon { fill: var(--text-bright); }
+    .btn:active:not(:disabled) { transform: translateY(1px); }
+    .btn.active { border-color: var(--accent); color: var(--accent-bright); box-shadow: 0 0 14px var(--accent-glow); }
+    .btn.active .btn-icon { fill: var(--accent-bright); }
+    .btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .btn-icon { width: 13px; height: 13px; fill: var(--text-base); transition: fill 0.15s ease; }
+
+    .nav-row { display: flex; gap: 8px; padding: 0 20px 10px; }
+    .nav-row .btn { flex: 1; padding: 6px 10px; font-size: 10px; }
 
     input[type="range"] {
       -webkit-appearance: none; appearance: none;
-      width: 100%; height: 4px;
-      background: linear-gradient(to right, var(--accent) 0%, var(--accent) var(--fill, 70%), var(--border-dim) var(--fill, 70%), var(--border-dim) 100%);
+      width: 100%; height: 3px;
+      background: linear-gradient(to right, var(--accent) 0%, var(--accent) var(--fill, 50%), var(--border-dim) var(--fill, 50%), var(--border-dim) 100%);
       border-radius: 2px; outline: none; cursor: pointer;
       font-size: 16px;
     }
     input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none; width: 14px; height: 14px;
+      -webkit-appearance: none; width: 12px; height: 12px;
       background: var(--accent-mid); border: 2px solid var(--accent-bright);
       border-radius: 2px; cursor: pointer;
       transition: background 0.15s, box-shadow 0.15s;
@@ -192,48 +243,355 @@
       background: var(--accent-bright); box-shadow: 0 0 10px var(--accent-glow);
     }
     input[type="range"]::-moz-range-thumb {
-      width: 14px; height: 14px;
+      width: 12px; height: 12px;
       background: var(--accent-mid); border: 2px solid var(--accent-bright);
       border-radius: 2px; cursor: pointer;
     }
     input[type="range"]::-moz-range-track {
-      height: 4px; background: var(--border-dim); border-radius: 2px; border: none;
+      height: 3px; background: var(--border-dim); border-radius: 2px; border: none;
     }
 
-    .transport { display: flex; gap: 10px; padding: 14px 20px 8px; }
-    .nav-row { display: flex; gap: 10px; padding: 0 20px 16px; }
-
-    .btn {
-      flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
-      padding: 10px 16px; font-family: inherit; font-size: 11px; font-weight: 500;
-      letter-spacing: 0.12em; color: var(--text-dim); background: var(--bg-raised);
-      border: 1px solid var(--border-dim); border-radius: 3px; cursor: pointer;
-      transition: all 0.2s ease; text-transform: uppercase;
+    /* ── Macros ── */
+    .macro-section {
+      padding: 10px 20px 6px;
+      border-top: 1px solid var(--border-dim);
     }
-    .btn:hover:not(:disabled) { border-color: var(--border); color: var(--text-bright); }
-    .btn:hover:not(:disabled) .btn-icon { fill: var(--text-bright); }
-    .btn:active:not(:disabled) { transform: translateY(1px); }
-    .btn.active { border-color: var(--accent); color: var(--accent-bright); box-shadow: 0 0 14px var(--accent-glow); }
-    .btn.active .btn-icon { fill: var(--accent-bright); }
-    .btn:disabled { opacity: 0.25; cursor: not-allowed; }
-    .btn-icon { width: 12px; height: 12px; fill: var(--text-muted); transition: fill 0.2s ease; }
-    .btn-sm { padding: 7px 12px; font-size: 10px; }
 
+    .macro-label {
+      font-size: 10px; font-weight: 500; letter-spacing: 0.2em;
+      text-transform: uppercase; color: var(--text-dim);
+      margin-bottom: 10px;
+    }
+
+    .macro-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+    }
+
+    .macro-knob {
+      display: flex; flex-direction: column; gap: 4px;
+    }
+
+    .macro-knob label {
+      font-size: 9px; font-weight: 500; letter-spacing: 0.1em;
+      color: var(--text-base); text-transform: uppercase;
+      text-align: center; line-height: 1.2;
+    }
+
+    .macro-knob input[type="range"] {
+      height: 3px;
+    }
+
+    .macro-knob .macro-val {
+      font-size: 10px; color: var(--text-muted); text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ── Step Grid ── */
+    .grid-section {
+      padding: 8px 0;
+      border-top: 1px solid var(--border-dim);
+      overflow-x: auto;
+    }
+
+    .grid-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 20px 6px;
+    }
+
+    .grid-header-label {
+      font-size: 10px; font-weight: 500; letter-spacing: 0.2em;
+      text-transform: uppercase; color: var(--text-dim);
+    }
+
+    .grid-actions {
+      display: flex; gap: 6px; align-items: center;
+    }
+
+    .grid-actions .btn { padding: 5px 12px; font-size: 10px; }
+
+    .grid-row {
+      display: flex;
+      align-items: center;
+      padding: 0 12px 0 12px;
+      height: 36px;
+      transition: background 0.1s;
+    }
+
+    .grid-row:hover { background: rgba(110, 110, 170, 0.02); }
+    .grid-row.silenced { opacity: 0.35; }
+
+    .grid-row-label {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      min-width: 200px;
+      flex-shrink: 0;
+      padding-right: 8px;
+    }
+
+    .ms-btn {
+      width: 24px; height: 22px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: inherit; font-size: 10px; font-weight: 700;
+      background: rgba(255, 255, 255, 0.03); border: 1px solid var(--text-ghost);
+      border-radius: 3px; cursor: pointer; color: var(--text-dim);
+      transition: all 0.12s;
+      padding: 0; line-height: 1;
+    }
+
+    .ms-btn:hover { border-color: var(--text-dim); color: var(--text-base); background: rgba(255, 255, 255, 0.06); }
+    .ms-btn.mute-on { background: var(--red-dim); border-color: var(--red); color: var(--red); }
+    .ms-btn.solo-on { background: var(--yellow-dim); border-color: var(--yellow); color: var(--yellow); }
+
+    .layer-name {
+      font-size: 10px; font-weight: 500; letter-spacing: 0.08em;
+      color: var(--text-base); text-transform: uppercase;
+      min-width: 52px;
+    }
+
+    .activity-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--border);
+      transition: background 0.05s, box-shadow 0.05s;
+      flex-shrink: 0;
+    }
+    .activity-dot.on {
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green-glow);
+    }
+
+    /* ── Preset selector ── */
+    .preset-wrap { position: relative; }
+
+    .preset-btn {
+      display: flex; align-items: center; gap: 3px;
+      padding: 2px 6px;
+      font-family: inherit; font-size: 8px; font-weight: 400;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      color: var(--text-dim); background: var(--bg-raised);
+      border: 1px solid var(--border-dim); border-radius: 2px;
+      cursor: pointer; white-space: nowrap;
+      transition: all 0.12s; line-height: 1.3;
+    }
+    .preset-btn:hover { border-color: var(--accent); color: var(--text-base); }
+    .preset-btn .arrow { font-size: 7px; opacity: 0.5; }
+
+    .preset-panel {
+      position: absolute; top: 100%; left: 0; z-index: 30;
+      margin-top: 2px;
+      background: var(--bg-raised); border: 1px solid var(--border);
+      border-radius: 3px; padding: 4px 0;
+      min-width: 220px; max-height: 320px; overflow-y: auto;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+      display: none;
+    }
+    .preset-panel.open { display: block; }
+
+    .preset-item {
+      padding: 5px 10px; cursor: pointer;
+      transition: background 0.08s;
+    }
+    .preset-item:hover { background: rgba(110, 110, 170, 0.1); }
+    .preset-item.active { background: var(--accent-glow); }
+
+    .preset-item-name {
+      font-size: 9px; font-weight: 500; letter-spacing: 0.08em;
+      color: var(--text-base); text-transform: uppercase;
+    }
+    .preset-item.active .preset-item-name { color: var(--accent-bright); }
+
+    .preset-item-desc {
+      font-size: 8px; font-weight: 300; color: var(--text-muted);
+      letter-spacing: 0.03em; margin-top: 1px;
+    }
+
+    .grid-cells {
+      display: flex;
+      gap: 2px;
+      flex: 1;
+    }
+
+    .grid-cell {
+      flex: 1;
+      height: 28px;
+      min-width: 0;
+      background: var(--bg-cell);
+      border: 1px solid transparent;
+      border-radius: 2px;
+      cursor: pointer;
+      position: relative;
+      transition: border-color 0.08s;
+      overflow: hidden;
+    }
+
+    /* Beat grouping: every 4 cells, alternate shade */
+    .grid-cell.alt-group { background: var(--bg-cell-alt); }
+
+    /* Playhead column */
+    .grid-cell.playhead {
+      border-color: var(--green-dim);
+      background: var(--green-cell);
+    }
+
+    .grid-cell:hover { border-color: var(--text-ghost); }
+
+    /* Active states by type */
+    .grid-cell.on-trigger {
+      background: var(--step-on);
+      border-color: var(--step-on-bright);
+    }
+    .grid-cell.on-trigger.playhead {
+      background: var(--green);
+      border-color: var(--green);
+    }
+
+    .grid-cell.on-note {
+      background: var(--step-note);
+      border-color: #7ea0dd;
+    }
+    .grid-cell.on-note.playhead {
+      background: var(--green);
+      border-color: var(--green);
+    }
+
+    /* Note label inside cell */
+    .grid-cell .note-label {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 8px; font-weight: 500; color: rgba(255,255,255,0.8);
+      letter-spacing: 0.02em; pointer-events: none;
+      line-height: 1;
+    }
+
+    /* Velocity fill bar (grows from bottom) */
+    .grid-cell .vel-fill {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: var(--step-vel);
+      border-radius: 0 0 1px 1px;
+      pointer-events: none;
+      transition: height 0.05s;
+    }
+    .grid-cell.playhead .vel-fill {
+      background: var(--green);
+    }
+
+    /* Page toggle for 32-step patterns */
+    .page-toggle {
+      display: flex; gap: 0; margin-left: 4px; flex-shrink: 0;
+    }
+
+    .page-btn {
+      width: 18px; height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: inherit; font-size: 9px; font-weight: 500;
+      background: var(--bg-raised); color: var(--text-muted);
+      border: 1px solid var(--border-dim);
+      cursor: pointer; transition: all 0.1s;
+      padding: 0;
+    }
+    .page-btn:first-child { border-radius: 2px 0 0 2px; }
+    .page-btn:last-child { border-radius: 0 2px 2px 0; border-left: none; }
+    .page-btn.active { background: var(--accent); color: var(--bg-deep); border-color: var(--accent); }
+
+    /* Non-grid layers (continuous) */
+    .grid-row.no-grid .grid-cells {
+      justify-content: flex-start;
+    }
+
+    .grid-row.no-grid .layer-tag {
+      font-size: 9px; color: var(--text-muted); letter-spacing: 0.1em;
+      text-transform: uppercase; font-style: italic;
+    }
+
+    /* ── Mixer panel ── */
+    .mixer-section { border-top: 1px solid var(--border-dim); }
+
+    .collapsible-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 20px; cursor: pointer; user-select: none;
+      transition: background 0.15s;
+    }
+    .collapsible-header:hover { background: rgba(110, 110, 170, 0.04); }
+    .collapsible-header .group-label {
+      font-size: 10px; font-weight: 500; letter-spacing: 0.2em;
+      text-transform: uppercase; color: var(--text-dim); margin: 0;
+    }
+
+    .collapse-arrow {
+      font-size: 10px; color: var(--text-ghost);
+      transition: transform 0.2s;
+    }
+    .collapse-arrow.open { transform: rotate(90deg); }
+
+    .mixer-body { padding: 0 20px 12px; }
+
+    .mixer-group-label {
+      font-size: 9px; font-weight: 400; letter-spacing: 0.2em;
+      text-transform: uppercase; color: var(--text-muted);
+      margin: 10px 0 6px; padding-left: 2px;
+    }
+    .mixer-group-label:first-child { margin-top: 0; }
+
+    .mixer-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 14px;
+    }
+
+    .mixer-fader {
+      display: flex; align-items: center; gap: 6px;
+    }
+
+    .mixer-fader label {
+      font-size: 9px; font-weight: 400; color: var(--text-base);
+      letter-spacing: 0.1em; text-transform: uppercase;
+      min-width: 56px; text-align: right;
+    }
+
+    .mixer-fader input[type="range"] { flex: 1; height: 3px; }
+
+    .mixer-fader .fader-value {
+      font-size: 10px; min-width: 36px; text-align: right;
+      color: var(--accent); font-variant-numeric: tabular-nums;
+    }
+
+    .mixer-actions {
+      display: flex; gap: 6px; margin-top: 10px;
+    }
+
+    .mixer-actions .btn { padding: 5px 12px; font-size: 10px; }
+
+    .mixer-toast {
+      position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%);
+      padding: 6px 16px; font-family: inherit; font-size: 10px; font-weight: 400;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--green); background: var(--bg-surface);
+      border: 1px solid var(--green); border-radius: 3px;
+      box-shadow: 0 0 20px rgba(74, 222, 128, 0.15);
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.2s ease;
+      z-index: 50;
+    }
+    .mixer-toast.show { opacity: 1; }
+
+    /* ── Footer ── */
     .footer {
-      padding: 10px 20px; font-size: 9px; font-weight: 300; color: var(--text-ghost);
+      padding: 8px 20px; font-size: 8px; font-weight: 300; color: var(--text-ghost);
       letter-spacing: 0.1em; text-transform: uppercase;
       border-top: 1px solid var(--border-dim);
       display: flex; align-items: center; gap: 6px;
     }
 
     .key-hint {
-      position: fixed; bottom: 16px; font-size: 9px; font-weight: 300;
+      position: fixed; bottom: 12px; font-size: 8px; font-weight: 300;
       color: var(--text-ghost); letter-spacing: 0.08em;
     }
     .key-hint kbd {
-      display: inline-block; padding: 1px 5px; background: var(--bg-raised);
+      display: inline-block; padding: 1px 4px; background: var(--bg-raised);
       border: 1px solid var(--border-dim); border-radius: 2px;
-      font-family: inherit; font-size: 9px; color: var(--text-muted);
+      font-family: inherit; font-size: 8px; color: var(--text-muted);
     }
   </style>
 </head>
@@ -242,7 +600,7 @@
     <header class="header">
       <div class="header-left">
         <h1 class="logo">CIPHER</h1>
-        <span class="version">v0.1</span>
+        <span class="tag">Studio</span>
       </div>
       <div class="header-right">
         <span class="led" id="led"></span>
@@ -257,7 +615,7 @@
       <span class="sep">&middot;</span>
       <span id="bpm">140 BPM</span>
       <span class="sep">&middot;</span>
-      <span>9 layers</span>
+      <span>10 layers</span>
       <span class="sep">&middot;</span>
       <span>68 bars</span>
     </div>
@@ -274,17 +632,8 @@
       <canvas id="viz"></canvas>
     </div>
 
-    <div class="controls">
-      <div class="fader">
-        <div class="fader-header">
-          <label for="slider-volume">Volume</label>
-          <span class="fader-value" id="val-volume">0.70</span>
-        </div>
-        <input type="range" id="slider-volume" min="0" max="1" step="0.01" value="0.70">
-      </div>
-    </div>
-
-    <div class="transport">
+    <!-- Transport -->
+    <div class="transport-row">
       <button id="btn-play" class="btn">
         <svg class="btn-icon" viewBox="0 0 24 24"><polygon points="7,4 20,12 7,20"/></svg>
         Play
@@ -293,29 +642,64 @@
         <svg class="btn-icon" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1"/></svg>
         Stop
       </button>
-    </div>
-
-    <div class="nav-row">
-      <button id="btn-prev" class="btn btn-sm" disabled>
+      <button id="btn-prev" class="btn" disabled>
         <svg class="btn-icon" viewBox="0 0 24 24"><polygon points="17,4 7,12 17,20"/></svg>
-        Prev
       </button>
-      <button id="btn-next" class="btn btn-sm" disabled>
-        Next
+      <button id="btn-next" class="btn" disabled>
         <svg class="btn-icon" viewBox="0 0 24 24"><polygon points="7,4 17,12 7,20"/></svg>
       </button>
+      <div class="controls-inline">
+        <label for="slider-volume">Vol</label>
+        <input type="range" id="slider-volume" min="0" max="1" step="0.01" value="1.00">
+        <span class="fader-value" id="val-volume">1.00</span>
+      </div>
     </div>
+
+    <!-- Macros -->
+    <div class="macro-section">
+      <div class="macro-label">MACROS</div>
+      <div class="macro-grid" id="macro-container"></div>
+    </div>
+
+    <!-- Step Grid -->
+    <div class="grid-section">
+      <div class="grid-header">
+        <span class="grid-header-label">STEP SEQUENCER</span>
+        <div class="grid-actions">
+          <button class="btn" id="btn-reset-patterns">Reset All</button>
+        </div>
+      </div>
+      <div id="grid-container"></div>
+    </div>
+
+    <!-- Mixer -->
+    <div class="mixer-section">
+      <div class="collapsible-header" id="mixer-toggle">
+        <span class="group-label">MIXER</span>
+        <span class="collapse-arrow open" id="mixer-arrow">&#9656;</span>
+      </div>
+      <div class="mixer-body" id="mixer-body">
+        <div id="mixer-container"></div>
+        <div class="mixer-actions">
+          <button class="btn" id="btn-save-mix">Save</button>
+          <button class="btn" id="btn-copy-mix">Copy</button>
+          <button class="btn" id="btn-reset-mix">Reset</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="mixer-toast" id="mixer-toast"></div>
 
     <footer class="footer">
       <span>tone.js</span>
       <span class="sep">&middot;</span>
-      <span>sub drone + 808 accents</span>
+      <span>cipher beat studio</span>
       <span class="sep">&middot;</span>
       <span>half-time 140</span>
     </footer>
   </div>
 
-  <div class="key-hint"><kbd>Space</kbd> play / stop &nbsp; <kbd>&larr;</kbd> prev &nbsp; <kbd>&rarr;</kbd> next</div>
+  <div class="key-hint"><kbd>Space</kbd> play/stop &nbsp; <kbd>&larr;</kbd><kbd>&rarr;</kbd> sections</div>
 
   <script type="importmap">
   {
@@ -355,6 +739,50 @@
     let w = 0, h = 0;
     let gradient = null;
 
+    // ── Storage ──
+    const STORAGE_KEY = "cipher-sb-dark-studio";
+
+    function saveStudio() {
+      if (!track) return;
+      const data = {
+        mix: getMixSnapshot(),
+        layers: track.layerState.toJSON(),
+        macros: track.macros.toJSON(),
+        patterns: track.patternStore.toJSON(),
+        gridPages: { ...gridPages },
+        presets: track.getActivePresets(),
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    function loadStudio() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const data = JSON.parse(raw);
+        // Presets first so macro rebind lands on correct nodes
+        if (data.presets) {
+          for (const [layer, presetId] of Object.entries(data.presets)) {
+            track.swapPreset(layer, presetId);
+          }
+          refreshPresetButtons();
+        }
+        if (data.mix) applyMixSnapshot(data.mix);
+        if (data.layers) track.layerState.fromJSON(data.layers);
+        if (data.macros) {
+          track.macros.fromJSON(data.macros);
+          refreshMacroSliders();
+        }
+        if (data.patterns) {
+          track.patternStore.fromJSON(data.patterns);
+          refreshGrid();
+        }
+        if (data.gridPages) Object.assign(gridPages, data.gridPages);
+        refreshLayerUI();
+      } catch (_) {}
+    }
+
+    // ── Canvas ──
     function resizeCanvas() {
       const rect = canvas.parentElement.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
@@ -384,6 +812,7 @@
       ledEl.className = "led";
       if (s === "playing") ledEl.classList.add("playing");
       else if (s === "error") ledEl.classList.add("error");
+      else if (s === "ready") { /* neutral LED, just shows READY text */ }
       consoleEl.classList.toggle("playing", s === "playing");
       btnPlay.classList.toggle("active", s === "playing");
     }
@@ -395,7 +824,7 @@
 
     function getCurrentBar() {
       if (!engine.isReady()) return 0;
-      const pos = Tone.getTransport().position; // "bars:beats:sixteenths"
+      const pos = Tone.getTransport().position;
       const parts = pos.split(":");
       return parseInt(parts[0], 10);
     }
@@ -410,8 +839,6 @@
     function seekToSection(idx) {
       if (!track || idx < 0 || idx >= sections.length) return;
       const sec = sections[idx];
-
-      // Stop transport, reconfigure from target bar, restart
       engine.stop();
       Tone.getTransport().position = `${sec.start}m`;
       track.start(sec.start);
@@ -419,12 +846,20 @@
       engine.start();
     }
 
-    async function initAndPlay(fromBar = 0) {
-      setState("init");
-      btnPlay.disabled = true;
+    // ── Separate init from play ──
+    // Init creates audio context, mixer, track, and builds all UI.
+    // Play just starts the transport. This way the studio UI is visible
+    // even before playback begins.
 
-      try {
-        if (!track) {
+    let initPromise = null;
+
+    async function ensureInit() {
+      if (track) return;
+      if (initPromise) return initPromise;
+
+      initPromise = (async () => {
+        setState("init");
+        try {
           await engine.init(140);
           mixer = await createMixer();
 
@@ -435,14 +870,36 @@
           track = createDarkTrapTrack(mixer);
           sections = track.getSections();
 
+          buildMacros();
+          buildGrid();
+          buildMixer();
+
+          // Wire activity indicators
+          track.onActivity((layer) => {
+            const dot = activityDots[layer];
+            if (dot) {
+              dot.classList.add("on");
+              clearTimeout(dot._timeout);
+              dot._timeout = setTimeout(() => dot.classList.remove("on"), 80);
+            }
+          });
+
+          // Wire layer state changes to UI
+          track.layerState.onChange(() => {
+            refreshLayerUI();
+          });
+
+          // Wire playhead to grid
+          track.playhead.onChange((getStep) => {
+            updatePlayhead(getStep);
+          });
+
           track.onSectionChange((name) => {
             if (name === "stopped") {
               sectionEl.textContent = "COMPLETE";
               sectionEl.classList.add("dim");
               progressEl.style.width = "100%";
               barCountEl.textContent = "68 / 68";
-
-              // Track auto-completed — stop the engine
               engine.stop();
               playing = false;
               setState("stopped");
@@ -453,7 +910,26 @@
             sectionEl.textContent = name.toUpperCase();
             sectionEl.classList.remove("dim");
           });
+
+          // Load saved state after everything is built
+          loadStudio();
+          setState("ready");
+        } catch (err) {
+          console.error("Cipher init failed:", err);
+          setState("error");
+          stateEl.textContent = "ERROR";
+          initPromise = null; // allow retry
+          throw err;
         }
+      })();
+
+      return initPromise;
+    }
+
+    async function initAndPlay(fromBar = 0) {
+      btnPlay.disabled = true;
+      try {
+        await ensureInit();
 
         track.start(fromBar);
         track.setVolume(parseFloat(sliderVol.value));
@@ -469,12 +945,15 @@
         btnStop.disabled = false;
         updateNavButtons();
       } catch (err) {
-        console.error("Cipher init failed:", err);
-        setState("error");
-        stateEl.textContent = "ERROR";
+        console.error("Cipher play failed:", err);
         btnPlay.disabled = false;
       }
     }
+
+    // Init on ANY first click in the console — unlocks AudioContext + builds UI
+    consoleEl.addEventListener("click", () => {
+      if (!track && !initPromise) ensureInit();
+    }, { once: true });
 
     btnPlay.addEventListener("click", () => {
       if (playing) return;
@@ -493,14 +972,13 @@
       sectionEl.classList.add("dim");
       progressEl.style.width = "0%";
       barCountEl.textContent = "0 / 68";
+      clearPlayhead();
     });
 
     btnPrev.addEventListener("click", () => {
       if (!playing) return;
       const bar = getCurrentBar();
       const idx = findSectionIndex(bar);
-      // If we're more than 2 bars into the current section, restart it.
-      // Otherwise go to the previous section.
       const sec = sections[idx];
       const targetIdx = (bar - sec.start > 2 && idx >= 0) ? idx : Math.max(0, idx - 1);
       seekToSection(targetIdx);
@@ -510,23 +988,18 @@
       if (!playing) return;
       const bar = getCurrentBar();
       const idx = findSectionIndex(bar);
-      if (idx < sections.length - 1) {
-        seekToSection(idx + 1);
-      }
+      if (idx < sections.length - 1) seekToSection(idx + 1);
     });
 
     document.addEventListener("keydown", (e) => {
       if (e.target !== document.body) return;
       if (e.code === "Space") {
         e.preventDefault();
-        if (playing) btnStop.click();
-        else btnPlay.click();
+        if (playing) btnStop.click(); else btnPlay.click();
       } else if (e.code === "ArrowLeft" && playing) {
-        e.preventDefault();
-        btnPrev.click();
+        e.preventDefault(); btnPrev.click();
       } else if (e.code === "ArrowRight" && playing) {
-        e.preventDefault();
-        btnNext.click();
+        e.preventDefault(); btnNext.click();
       }
     });
 
@@ -537,23 +1010,663 @@
       track?.setVolume(v);
     });
 
+    // ── Macros ──
+    const macroContainer = $("macro-container");
+    const macroSliders = {};
+
+    function buildMacros() {
+      if (!track) return;
+      const defs = track.macros.getMacroDefs();
+
+      for (const def of defs) {
+        const knob = document.createElement("div");
+        knob.className = "macro-knob";
+
+        const label = document.createElement("label");
+        label.textContent = def.label;
+
+        const slider = document.createElement("input");
+        slider.type = "range";
+        slider.min = 0;
+        slider.max = 100;
+        slider.step = 1;
+        slider.value = Math.round(def.value * 100);
+
+        const val = document.createElement("div");
+        val.className = "macro-val";
+        val.textContent = slider.value;
+
+        updateFill(slider);
+
+        slider.addEventListener("input", () => {
+          const v = parseInt(slider.value);
+          track.macros.set(def.name, v / 100);
+          val.textContent = v;
+          updateFill(slider);
+          saveStudio();
+        });
+
+        macroSliders[def.name] = { slider, val };
+
+        knob.appendChild(label);
+        knob.appendChild(slider);
+        knob.appendChild(val);
+        macroContainer.appendChild(knob);
+      }
+    }
+
+    function refreshMacroSliders() {
+      if (!track) return;
+      const defs = track.macros.getMacroDefs();
+      for (const def of defs) {
+        const ui = macroSliders[def.name];
+        if (!ui) continue;
+        const v = Math.round(def.value * 100);
+        ui.slider.value = v;
+        ui.val.textContent = v;
+        updateFill(ui.slider);
+      }
+    }
+
+    // ── Step Grid ──
+    const gridContainer = $("grid-container");
+    const activityDots = {};
+    const gridRows = {};     // layerName -> { cells: [], row, pageToggle? }
+    const gridPages = {};    // layerName -> 0 or 1 (for 32-step patterns)
+    let lastPlayheadCells = [];
+
+    // Grid layer definitions
+    const GRID_LAYERS = [
+      { name: "melody",   store: "melody",   label: "MELODY",  res: "8n",  type: "note",     steps: 16 },
+      { name: "808",      store: "808",       label: "808",     res: "8n",  type: "note",     steps: 16 },
+      { name: "kick",     store: "kick",      label: "KICK",    res: "16n", type: "trigger",  steps: 32 },
+      { name: "snare",    store: "snare",     label: "SNARE",   res: "16n", type: "trigger",  steps: 16 },
+      { name: "hat",      store: "hat",       label: "HI-HAT",  res: "16n", type: "velocity", steps: 16 },
+      { name: "open-hat", store: "open-hat",  label: "O-HAT",   res: "16n", type: "trigger",  steps: 32 },
+      { name: "accent",   store: "accent",    label: "ACCENT",  res: "8n",  type: "note",     steps: 16 },
+    ];
+
+    const CONTINUOUS_LAYERS = [
+      { name: "pad",   label: "PAD" },
+      { name: "sub",   label: "SUB" },
+      { name: "vinyl", label: "VINYL" },
+    ];
+
+    function clearChildren(el) {
+      while (el.firstChild) el.removeChild(el.firstChild);
+    }
+
+    function buildGrid() {
+      if (!track) return;
+      clearChildren(gridContainer);
+
+      // Grid layers with steps
+      for (const layer of GRID_LAYERS) {
+        const row = document.createElement("div");
+        row.className = "grid-row";
+        row.dataset.layer = layer.name;
+
+        const label = buildRowLabel(layer.name, layer.label);
+        row.appendChild(label);
+
+        const cellsWrap = document.createElement("div");
+        cellsWrap.className = "grid-cells";
+
+        const pageSize = 16;
+        const cells = [];
+
+        for (let i = 0; i < pageSize; i++) {
+          const cell = document.createElement("div");
+          cell.className = "grid-cell";
+          cell.dataset.step = i;
+
+          if (layer.type === "velocity") {
+            const fill = document.createElement("div");
+            fill.className = "vel-fill";
+            cell.appendChild(fill);
+          }
+
+          if (layer.type === "note") {
+            const noteLabel = document.createElement("div");
+            noteLabel.className = "note-label";
+            cell.appendChild(noteLabel);
+          }
+
+          // Click handler
+          cell.addEventListener("mousedown", (e) => {
+            e.preventDefault();
+            const page = gridPages[layer.name] || 0;
+            const stepIdx = page * 16 + i;
+
+            if (layer.type === "velocity") {
+              startVelDrag(layer.store, stepIdx, cell, e);
+            } else {
+              track.patternStore.toggleStep(layer.store, stepIdx);
+              refreshGridCell(layer, i);
+              saveStudio();
+            }
+          });
+
+          cells.push(cell);
+          cellsWrap.appendChild(cell);
+        }
+
+        row.appendChild(cellsWrap);
+
+        // Page toggle for 32-step patterns
+        let pageToggle = null;
+        if (layer.steps > 16) {
+          gridPages[layer.name] = gridPages[layer.name] || 0;
+          pageToggle = buildPageToggle(layer.name, () => {
+            refreshGridRow(layer);
+          });
+          row.appendChild(pageToggle.container);
+        }
+
+        gridContainer.appendChild(row);
+        gridRows[layer.name] = { cells, row, layer, pageToggle };
+      }
+
+      // Continuous layers (no grid)
+      for (const layer of CONTINUOUS_LAYERS) {
+        const row = document.createElement("div");
+        row.className = "grid-row no-grid";
+        row.dataset.layer = layer.name;
+
+        const label = buildRowLabel(layer.name, layer.label);
+        row.appendChild(label);
+
+        const cellsWrap = document.createElement("div");
+        cellsWrap.className = "grid-cells";
+        const tag = document.createElement("span");
+        tag.className = "layer-tag";
+        tag.textContent = "continuous";
+        cellsWrap.appendChild(tag);
+        row.appendChild(cellsWrap);
+
+        gridContainer.appendChild(row);
+        gridRows[layer.name] = { cells: [], row, layer };
+      }
+
+      refreshGrid();
+    }
+
+    // Preset UI state
+    const presetButtons = {};  // layerName -> { btn, panel, nameEl }
+    let openPresetPanel = null;
+
+    function closeAllPresetPanels() {
+      if (openPresetPanel) {
+        openPresetPanel.classList.remove("open");
+        openPresetPanel = null;
+      }
+    }
+
+    // Close preset panel on click outside
+    document.addEventListener("click", (e) => {
+      if (openPresetPanel && !e.target.closest(".preset-wrap")) {
+        closeAllPresetPanels();
+      }
+    });
+
+    function buildRowLabel(layerName, displayLabel) {
+      const label = document.createElement("div");
+      label.className = "grid-row-label";
+
+      const muteBtn = document.createElement("button");
+      muteBtn.className = "ms-btn";
+      muteBtn.textContent = "M";
+      muteBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        track.layerState.toggleMute(layerName);
+        saveStudio();
+      });
+
+      const soloBtn = document.createElement("button");
+      soloBtn.className = "ms-btn";
+      soloBtn.textContent = "S";
+      soloBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        track.layerState.toggleSolo(layerName);
+        saveStudio();
+      });
+
+      const name = document.createElement("span");
+      name.className = "layer-name";
+      name.textContent = displayLabel;
+
+      // Preset selector
+      const presets = track.getPresets(layerName);
+      let presetWrap = null;
+
+      if (presets.length > 1) {
+        presetWrap = document.createElement("div");
+        presetWrap.className = "preset-wrap";
+
+        const activeId = track.getActivePresets()[layerName];
+        const active = presets.find(p => p.id === activeId) || presets[0];
+
+        const btn = document.createElement("button");
+        btn.className = "preset-btn";
+        const nameEl = document.createElement("span");
+        nameEl.textContent = active.name;
+        const arrow = document.createElement("span");
+        arrow.className = "arrow";
+        arrow.textContent = "\u25BE";
+        btn.appendChild(nameEl);
+        btn.appendChild(arrow);
+
+        const panel = document.createElement("div");
+        panel.className = "preset-panel";
+
+        for (const preset of presets) {
+          const item = document.createElement("div");
+          item.className = "preset-item" + (preset.id === activeId ? " active" : "");
+          item.dataset.id = preset.id;
+
+          const itemName = document.createElement("div");
+          itemName.className = "preset-item-name";
+          itemName.textContent = preset.name;
+
+          const itemDesc = document.createElement("div");
+          itemDesc.className = "preset-item-desc";
+          itemDesc.textContent = preset.desc;
+
+          item.appendChild(itemName);
+          item.appendChild(itemDesc);
+
+          item.addEventListener("click", (e) => {
+            e.stopPropagation();
+            track.swapPreset(layerName, preset.id);
+            nameEl.textContent = preset.name;
+            // Update active state
+            panel.querySelectorAll(".preset-item").forEach(el => el.classList.remove("active"));
+            item.classList.add("active");
+            closeAllPresetPanels();
+            saveStudio();
+          });
+
+          panel.appendChild(item);
+        }
+
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (openPresetPanel === panel) {
+            closeAllPresetPanels();
+          } else {
+            closeAllPresetPanels();
+            panel.classList.add("open");
+            openPresetPanel = panel;
+          }
+        });
+
+        presetWrap.appendChild(btn);
+        presetWrap.appendChild(panel);
+        presetButtons[layerName] = { btn, panel, nameEl };
+      }
+
+      const dot = document.createElement("span");
+      dot.className = "activity-dot";
+      activityDots[layerName] = dot;
+
+      label.appendChild(muteBtn);
+      label.appendChild(soloBtn);
+      label.appendChild(name);
+      if (presetWrap) label.appendChild(presetWrap);
+      label.appendChild(dot);
+
+      // Store button refs for refreshing
+      label._muteBtn = muteBtn;
+      label._soloBtn = soloBtn;
+
+      return label;
+    }
+
+    function refreshPresetButtons() {
+      if (!track) return;
+      const active = track.getActivePresets();
+      for (const [layerName, ui] of Object.entries(presetButtons)) {
+        const presetId = active[layerName];
+        if (!presetId || !ui) continue;
+        const presets = track.getPresets(layerName);
+        const preset = presets.find(p => p.id === presetId);
+        if (preset) ui.nameEl.textContent = preset.name;
+        ui.panel.querySelectorAll(".preset-item").forEach(el => {
+          el.classList.toggle("active", el.dataset.id === presetId);
+        });
+      }
+    }
+
+    function buildPageToggle(layerName, onChange) {
+      const container = document.createElement("div");
+      container.className = "page-toggle";
+
+      const btn1 = document.createElement("button");
+      btn1.className = "page-btn active";
+      btn1.textContent = "1";
+
+      const btn2 = document.createElement("button");
+      btn2.className = "page-btn";
+      btn2.textContent = "2";
+
+      btn1.addEventListener("click", (e) => {
+        e.stopPropagation();
+        gridPages[layerName] = 0;
+        btn1.classList.add("active");
+        btn2.classList.remove("active");
+        onChange();
+      });
+
+      btn2.addEventListener("click", (e) => {
+        e.stopPropagation();
+        gridPages[layerName] = 1;
+        btn2.classList.add("active");
+        btn1.classList.remove("active");
+        onChange();
+      });
+
+      container.appendChild(btn1);
+      container.appendChild(btn2);
+
+      return { container, btn1, btn2 };
+    }
+
+    // Velocity drag
+    let velDragInfo = null;
+
+    function startVelDrag(storeName, stepIdx, cell, e) {
+      const rect = cell.getBoundingClientRect();
+      velDragInfo = { storeName, stepIdx, cell, startY: e.clientY, rect };
+
+      const onMove = (ev) => {
+        const dy = velDragInfo.startY - ev.clientY;
+        const newVel = Math.max(0, Math.min(0.15, (dy + 20) / 150));
+        track.patternStore.set(velDragInfo.storeName, velDragInfo.stepIdx, newVel);
+
+        const layerDef = GRID_LAYERS.find(l => l.store === storeName);
+        if (layerDef) {
+          const page = gridPages[layerDef.name] || 0;
+          const cellIdx = stepIdx - page * 16;
+          if (cellIdx >= 0 && cellIdx < 16) refreshGridCell(layerDef, cellIdx);
+        }
+      };
+
+      const onUp = () => {
+        velDragInfo = null;
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onUp);
+        saveStudio();
+      };
+
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onUp);
+    }
+
+    function refreshGrid() {
+      for (const layer of GRID_LAYERS) {
+        refreshGridRow(layer);
+      }
+    }
+
+    function refreshGridRow(layer) {
+      const info = gridRows[layer.name];
+      if (!info) return;
+      for (let i = 0; i < 16; i++) {
+        refreshGridCell(layer, i);
+      }
+    }
+
+    function refreshGridCell(layer, cellIdx) {
+      const info = gridRows[layer.name];
+      if (!info || !info.cells[cellIdx]) return;
+      const cell = info.cells[cellIdx];
+      const page = gridPages[layer.name] || 0;
+      const stepIdx = page * 16 + cellIdx;
+      const value = track.patternStore.get(layer.store, stepIdx);
+
+      // Beat grouping
+      const isAlt = Math.floor(cellIdx / 4) % 2 === 1;
+      cell.classList.toggle("alt-group", isAlt);
+
+      // Clear active classes
+      cell.classList.remove("on-trigger", "on-note");
+
+      if (layer.type === "trigger") {
+        cell.classList.toggle("on-trigger", !!value);
+      } else if (layer.type === "note") {
+        const hasNote = value !== null;
+        cell.classList.toggle("on-note", hasNote);
+        const noteLabel = cell.querySelector(".note-label");
+        if (noteLabel) {
+          // Show just the note name (e.g. "C#" from "C#4")
+          noteLabel.textContent = hasNote ? value.replace(/\d+$/, "") : "";
+        }
+      } else if (layer.type === "velocity") {
+        const fill = cell.querySelector(".vel-fill");
+        if (fill) {
+          const pct = value > 0 ? Math.max(8, (value / 0.15) * 100) : 0;
+          fill.style.height = pct + "%";
+        }
+      }
+    }
+
+    function refreshLayerUI() {
+      if (!track) return;
+      const layers = track.layerState.getLayers();
+      for (const l of layers) {
+        const info = gridRows[l.name];
+        if (!info) continue;
+
+        info.row.classList.toggle("silenced", l.silenced);
+
+        const label = info.row.querySelector(".grid-row-label");
+        if (label) {
+          label._muteBtn.classList.toggle("mute-on", l.muted);
+          label._soloBtn.classList.toggle("solo-on", l.soloed);
+        }
+      }
+    }
+
+    // ── Playhead ──
+    function updatePlayhead(getStep) {
+      for (const cell of lastPlayheadCells) {
+        cell.classList.remove("playhead");
+      }
+      lastPlayheadCells = [];
+
+      if (!playing) return;
+
+      for (const layer of GRID_LAYERS) {
+        const info = gridRows[layer.name];
+        if (!info) continue;
+        const page = gridPages[layer.name] || 0;
+        const patLen = track.patternStore.getLength(layer.store);
+        const absStep = getStep(layer.res, patLen);
+        const cellIdx = absStep - page * 16;
+
+        if (cellIdx >= 0 && cellIdx < 16 && info.cells[cellIdx]) {
+          info.cells[cellIdx].classList.add("playhead");
+          lastPlayheadCells.push(info.cells[cellIdx]);
+        }
+      }
+    }
+
+    function clearPlayhead() {
+      for (const cell of lastPlayheadCells) {
+        cell.classList.remove("playhead");
+      }
+      lastPlayheadCells = [];
+    }
+
+    // ── Reset patterns ──
+    $("btn-reset-patterns").addEventListener("click", () => {
+      if (!track) return;
+      track.patternStore.resetAll();
+      refreshGrid();
+      saveStudio();
+      showToast("Patterns reset");
+    });
+
+    // ── Mixer panel ──
+    const mixerToggle = $("mixer-toggle");
+    const mixerBody   = $("mixer-body");
+    const mixerArrow  = $("mixer-arrow");
+    const mixerContainer = $("mixer-container");
+    const toastEl     = $("mixer-toast");
+    let controls = [];
+
+    mixerToggle.addEventListener("click", () => {
+      const open = mixerBody.style.display === "none";
+      mixerBody.style.display = open ? "block" : "none";
+      mixerArrow.classList.toggle("open", open);
+    });
+
+    function showToast(msg) {
+      toastEl.textContent = msg;
+      toastEl.classList.add("show");
+      setTimeout(() => toastEl.classList.remove("show"), 1500);
+    }
+
+    function buildMixer() {
+      if (!track) return;
+      controls = track.getControls();
+
+      clearChildren(mixerContainer);
+
+      const groups = {};
+      for (const c of controls) {
+        (groups[c.group] ||= []).push(c);
+      }
+
+      for (const [groupName, items] of Object.entries(groups)) {
+        const groupLabel = document.createElement("div");
+        groupLabel.className = "mixer-group-label";
+        groupLabel.textContent = groupName === "levels" ? "CHANNEL LEVELS" : "SYNTH PARAMS";
+        mixerContainer.appendChild(groupLabel);
+
+        const grid = document.createElement("div");
+        grid.className = "mixer-grid";
+        mixerContainer.appendChild(grid);
+
+        for (const ctrl of items) {
+          const row = document.createElement("div");
+          row.className = "mixer-fader";
+
+          const label = document.createElement("label");
+          label.textContent = ctrl.label;
+
+          const slider = document.createElement("input");
+          slider.type = "range";
+          slider.min = ctrl.min;
+          slider.max = ctrl.max;
+          slider.step = ctrl.step;
+          slider.value = ctrl.get();
+
+          const val = document.createElement("span");
+          val.className = "fader-value";
+          val.textContent = formatVal(ctrl);
+
+          updateFill(slider);
+
+          slider.addEventListener("input", () => {
+            const v = parseFloat(slider.value);
+            ctrl.set(v);
+            val.textContent = formatVal(ctrl);
+            updateFill(slider);
+            saveStudio();
+          });
+
+          ctrl._slider = slider;
+          ctrl._val = val;
+
+          row.appendChild(label);
+          row.appendChild(slider);
+          row.appendChild(val);
+          grid.appendChild(row);
+        }
+      }
+    }
+
+    function formatVal(ctrl) {
+      const v = ctrl.get();
+      if (ctrl.unit === "dB") return Math.round(v) + "";
+      if (ctrl.unit === "Hz") return Math.round(v) + "";
+      if (ctrl.unit === "s") return v.toFixed(2);
+      return v.toFixed(2);
+    }
+
+    function getMixSnapshot() {
+      const snap = {};
+      for (const c of controls) {
+        snap[c.name] = parseFloat(c.get().toFixed(4));
+      }
+      return snap;
+    }
+
+    function applyMixSnapshot(snap) {
+      for (const c of controls) {
+        if (snap[c.name] !== undefined) {
+          c.set(snap[c.name]);
+          if (c._slider) {
+            c._slider.value = snap[c.name];
+            updateFill(c._slider);
+          }
+          if (c._val) c._val.textContent = formatVal(c);
+        }
+      }
+    }
+
+    $("btn-save-mix").addEventListener("click", () => {
+      saveStudio();
+      showToast("Session saved");
+    });
+
+    $("btn-copy-mix").addEventListener("click", async () => {
+      const snap = getMixSnapshot();
+      const text = JSON.stringify(snap, null, 2);
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast("Copied to clipboard");
+      } catch (_) {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        ta.remove();
+        showToast("Copied to clipboard");
+      }
+    });
+
+    $("btn-reset-mix").addEventListener("click", () => {
+      for (const c of controls) {
+        c.set(c.default);
+        if (c._slider) {
+          c._slider.value = c.default;
+          updateFill(c._slider);
+        }
+        if (c._val) c._val.textContent = formatVal(c);
+      }
+      showToast("Mix reset");
+    });
+
     // ── Progress / bar counter polling ──
     setInterval(() => {
       if (engine.isReady()) {
-        bpmEl.textContent = `${Math.round(engine.getBPM())} BPM`;
+        bpmEl.textContent = Math.round(engine.getBPM()) + " BPM";
       }
       if (playing) {
         const bar = getCurrentBar();
         const clamped = Math.min(bar, 68);
         const pct = (clamped / 68) * 100;
-        progressEl.style.width = `${pct}%`;
-        barCountEl.textContent = `${clamped} / 68`;
+        progressEl.style.width = pct + "%";
+        barCountEl.textContent = clamped + " / 68";
       }
     }, 250);
 
     // ── Visualizer ──
-    const BAR_COUNT = 48;
-    const BAR_GAP = 2;
+    const BAR_COUNT = 64;
+    const BAR_GAP = 1;
 
     function draw() {
       requestAnimationFrame(draw);
@@ -562,10 +1675,10 @@
       ctx.fillStyle = "#07070e";
       ctx.fillRect(0, 0, w, h);
 
-      ctx.strokeStyle = "#111122";
+      ctx.strokeStyle = "#0e0e1c";
       ctx.lineWidth = 0.5;
-      for (let i = 1; i < 5; i++) {
-        const y = (h / 5) * i;
+      for (let i = 1; i < 4; i++) {
+        const y = (h / 4) * i;
         ctx.beginPath();
         ctx.moveTo(0, y);
         ctx.lineTo(w, y);

@@ -1,71 +1,56 @@
 import * as Tone from "tone";
 import { humanizeTiming, humanizeVelocity } from "../core/humanize.js";
+import { createLayerState } from "../studio/layer-state.js";
+import { createMacros } from "../studio/macros.js";
+import { createPatternStore } from "../studio/pattern-store.js";
+import { createPlayhead } from "../studio/playhead.js";
+import { createLayerRef } from "../studio/layer-ref.js";
+import { getPreset, getPresets, getDefaultPresetId } from "../studio/preset-registry.js";
 
 // ── Musical Data: C#m, 140 BPM half-time, 2-bar loop ──
-// $B / Budd Dwyer production DNA:
-//   - Dark melody, dry and upfront
-//   - Sub bass drone (follows harmony) + distorted 808 accents
-//   - Half-time kick/snare, trap hi-hats
 
-// Melody: 8th notes, 2 bars — descending through C#m
-// Bar 1: C#4 → B3 → A3 → G#3 (stepwise descent)
-// Bar 2: A3 → G#3 → F#3 → E3 (continues down, lands on minor 3rd)
 const MELODY = [
   null, "C#4", "B3", null, "A3", null, "G#3", null,
   "A3", null, "G#3", "F#3", null, "E3", null, null,
 ];
 
-// Sub bass root: whole notes, 2 bars — follows the harmony
-// C#1 (home) → B0 (descends with melody in bar 2)
 const SUB_ROOT = ["C#1", "B0"];
 
-// 808 accents: 8th notes, 2 bars
 const BASS_808 = [
   "C#1", null, null, null, "C#1", null, null, null,
   "D#1", null, null, null, "C#1", null, "B0", null,
 ];
 
-// Kick: 16th notes, 2 bars (beat 1 + ghost kick end of bar 1)
 const KICK = [
   1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
   1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 ];
 
-// Snare: 16th notes, 1 bar (beat 3)
 const SNARE = [
   0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
 ];
 
-// Hi-hat velocity: 16th notes, 1 bar
 const HAT_VEL = [
   0.08, 0.03, 0.06, 0.03, 0.08, 0.03, 0.06, 0.03,
   0.08, 0.03, 0.06, 0.03, 0.08, 0.03, 0.06, 0.03,
 ];
 
-// Verse 2 hat variant — subtle velocity shuffle for variation
 const HAT_VEL_V2 = [
   0.08, 0.03, 0.06, 0.03, 0.10, 0.02, 0.06, 0.03,
   0.08, 0.04, 0.06, 0.03, 0.08, 0.03, 0.05, 0.04,
 ];
 
-// Open hat: 16th notes, 2 bars (accent near end of bar 2)
 const OPEN_HAT = [
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0,
 ];
 
-// High accent: 8th notes, 2 bars — sparse ghostly sine hits
-// Anchored to strong beats: beat 1 (bar 1), beat 1 (bar 2), beat 3 (bar 2)
-// C#m chord tones in the upper register
 const HIGH_ACCENT = [
   "C#5", null, null, null, null, null, null, null,
   "E5",  null, null, null, "G#4", null, null, null,
 ];
 
 // ── Arrangement ──
-// 68 bars, ~1:57 at 140 BPM. Non-looping — plays once and stops.
-// Verses leave vocal space (melody pulled back), hooks bring everything forward.
-
 const SECTIONS = [
   { name: "intro",     start: 0,  end: 4  },
   { name: "verse-1",   start: 4,  end: 20 },
@@ -77,10 +62,8 @@ const SECTIONS = [
   { name: "outro",     start: 64, end: 68 },
 ];
 
-// Which gated layers are active per section
-// (sub, pad, melody are handled separately — they're continuous)
 const LAYER_MAP = {
-  "intro":     { kick: false, snare: false, hat: false, hatV2: false, eight: false, accent: true,  openHat: false },
+  "intro":     { kick: false, snare: false, hat: false, hatV2: false, eight: true,  accent: true,  openHat: false },
   "verse-1":   { kick: true,  snare: true,  hat: true,  hatV2: false, eight: true,  accent: false, openHat: false },
   "hook-1":    { kick: true,  snare: true,  hat: true,  hatV2: false, eight: true,  accent: true,  openHat: true  },
   "verse-2":   { kick: true,  snare: true,  hat: false, hatV2: true,  eight: true,  accent: false, openHat: false },
@@ -90,7 +73,6 @@ const LAYER_MAP = {
   "outro":     { kick: true,  snare: true,  hat: false, hatV2: false, eight: true,  accent: false, openHat: false },
 };
 
-// Derive consolidated start/stop windows for a sequence from the layer map
 function getSequenceWindows(seqName) {
   const windows = [];
   let current = null;
@@ -111,9 +93,59 @@ function getSequenceWindows(seqName) {
   return windows;
 }
 
+// Step-index array helper
+function idxArray(len) {
+  return Array.from({ length: len }, (_, i) => i);
+}
+
+// ── All 10 layer names (display order) ──
+const LAYER_NAMES = [
+  "melody", "808", "kick", "snare", "hat", "open-hat", "accent", "pad", "sub", "vinyl"
+];
+
+// Map from layer display name to sequence gate name
+const LAYER_TO_SEQ = {
+  "melody": null,    // continuous
+  "808": "eight",
+  "kick": "kick",
+  "snare": "snare",
+  "hat": "hat",
+  "open-hat": "openHat",
+  "accent": "accent",
+  "pad": null,       // continuous
+  "sub": null,       // continuous
+  "vinyl": null,     // continuous
+};
+
+// Layers whose presets have start/stop (oscillators, noise sources)
+const STARTABLE_LAYERS = ["808", "sub", "vinyl"];
+
 export function createDarkTrapTrack(mixer) {
+  // ── Studio modules ──
+  const layerState = createLayerState(LAYER_NAMES);
+  const patternStore = createPatternStore();
+  const playhead = createPlayhead();
+
+  // Activity tracking — which layers triggered this frame
+  const activity = {};
+  const activityListeners = [];
+  function fireActivity(layer) {
+    activity[layer] = performance.now();
+    for (const fn of activityListeners) fn(layer);
+  }
+
+  // ── Register patterns ──
+  patternStore.register("melody",   { pattern: MELODY,       resolution: "8n",  type: "note" });
+  patternStore.register("808",      { pattern: BASS_808,     resolution: "8n",  type: "note" });
+  patternStore.register("kick",     { pattern: KICK,         resolution: "16n", type: "trigger" });
+  patternStore.register("snare",    { pattern: SNARE,        resolution: "16n", type: "trigger" });
+  patternStore.register("hat",      { pattern: HAT_VEL,      resolution: "16n", type: "velocity" });
+  patternStore.register("hatV2",    { pattern: HAT_VEL_V2,   resolution: "16n", type: "velocity" });
+  patternStore.register("open-hat", { pattern: OPEN_HAT,     resolution: "16n", type: "trigger" });
+  patternStore.register("accent",   { pattern: HIGH_ACCENT,  resolution: "8n",  type: "note" });
+
   // ── Channels ──
-  const melCh     = mixer.createChannel("melody",   { volume: -10 });
+  const melCh     = mixer.createChannel("melody",   { volume: -36 });
   const subCh     = mixer.createChannel("sub-bass", { volume: -6 });
   const eightCh   = mixer.createChannel("808",      { volume: -8 });
   const kickCh    = mixer.createChannel("kick",     { volume: -6 });
@@ -122,6 +154,38 @@ export function createDarkTrapTrack(mixer) {
   const openHatCh = mixer.createChannel("open-hat", { volume: -10 });
   const padCh     = mixer.createChannel("pad",      { volume: -18 });
   const accentCh  = mixer.createChannel("accent",   { volume: -14 });
+  const vinylCh   = mixer.createChannel("vinyl",    { volume: -54 });
+
+  // Channel map for continuous layer muting
+  const channelMap = {
+    "melody": melCh, "sub": subCh, "808": eightCh, "kick": kickCh,
+    "snare": snareCh, "hat": hatCh, "open-hat": openHatCh,
+    "pad": padCh, "accent": accentCh, "vinyl": vinylCh,
+  };
+
+  // Store user-set volumes so we can restore after unmute
+  const savedVolumes = {};
+  for (const [name, ch] of Object.entries(channelMap)) {
+    savedVolumes[name] = ch.volume.value;
+  }
+
+  // Continuous layers: mute by volume, not by callback gating
+  const CONTINUOUS_LAYERS = ["melody", "pad", "sub", "vinyl"];
+
+  function applyContinuousMutes() {
+    for (const name of CONTINUOUS_LAYERS) {
+      const ch = channelMap[name];
+      if (!ch) continue;
+      if (layerState.isSilenced(name)) {
+        ch.volume.value = -Infinity;
+      } else {
+        ch.volume.value = savedVolumes[name];
+      }
+    }
+  }
+
+  // Listen for mute/solo changes
+  layerState.onChange(applyContinuousMutes);
 
   // Reverb sends
   melCh.send("reverb", -10);
@@ -129,183 +193,216 @@ export function createDarkTrapTrack(mixer) {
   padCh.send("reverb", -3);
   accentCh.send("reverb", -6);
 
-  // ── Melody: dark triangle, crushed ──
-  const melSynth = new Tone.Synth({
-    oscillator: { type: "triangle" },
-    envelope: { attack: 0.03, decay: 0.4, sustain: 0.35, release: 0.3 },
-  });
-  const melFilter = new Tone.Filter({ frequency: 2500, type: "lowpass", rolloff: -12 });
-  const melCrush = new Tone.BitCrusher({ bits: 12 });
-  const melPostFilter = new Tone.Filter({ frequency: 3500, type: "lowpass", rolloff: -24 });
-  melSynth.chain(melFilter, melCrush, melPostFilter, melCh);
+  // ── Fixed intermediary nodes (survive preset swaps) ──
+  const melAutoVol = new Tone.Volume(0);
+  melAutoVol.connect(melCh);
 
-  // ── Sub Bass: continuous sine oscillator — the foundation ──
-  const subOsc = new Tone.Oscillator({ frequency: "C#1", type: "sine" });
-  const subFilter = new Tone.Filter({ frequency: 80, type: "lowpass", rolloff: -24 });
-  subOsc.chain(subFilter, subCh);
+  const vinylGain = new Tone.Gain(0);
+  vinylGain.connect(vinylCh);
+
+  // ── Layer Refs ──
+  const layerRefs = {};
+  for (const name of LAYER_NAMES) {
+    layerRefs[name] = createLayerRef(name);
+  }
+
+  // Output map: where each preset chains to
+  const outputMap = {
+    melody:    melAutoVol,
+    "808":     eightCh,
+    kick:      kickCh,
+    snare:     snareCh,
+    hat:       hatCh,
+    "open-hat": openHatCh,
+    accent:    accentCh,
+    pad:       padCh,
+    sub:       subCh,
+    vinyl:     vinylGain,
+  };
+
+  // Initialize all layers with default presets
+  for (const name of LAYER_NAMES) {
+    const defaultId = getDefaultPresetId(name);
+    const preset = getPreset(name, defaultId);
+    if (preset) {
+      layerRefs[name].swap(preset.build(outputMap[name]), defaultId);
+    }
+  }
+
+  // Start continuous sources (oscillators, noise)
+  // These need to be running for audio to pass through
+  // (They'll be stopped/started as needed in start/cleanup)
+
+  // ── Sequences (PatternStore-backed, close over layerRefs) ──
+
+  let melHeld = false;
+  const melSeq = new Tone.Sequence(
+    (time, stepIdx) => {
+      if (layerState.isSilenced("melody")) {
+        if (melHeld) { layerRefs.melody.triggerRelease(time); melHeld = false; }
+        return;
+      }
+      const note = patternStore.get("melody", stepIdx);
+      if (note === null) {
+        if (melHeld) { layerRefs.melody.triggerRelease(time); melHeld = false; }
+        return;
+      }
+      layerRefs.melody.triggerAttack(note, time + humanizeTiming(0.003));
+      melHeld = true;
+      fireActivity("melody");
+    },
+    idxArray(MELODY.length), "8n"
+  );
+  melSeq.loop = true;
+
+  const eightSeq = new Tone.Sequence(
+    (time, stepIdx) => {
+      if (layerState.isSilenced("808")) return;
+      const note = patternStore.get("808", stepIdx);
+      if (note === null) return;
+      layerRefs["808"].triggerAttackRelease(note, 0.25, time);
+      fireActivity("808");
+    },
+    idxArray(BASS_808.length), "8n"
+  );
+  eightSeq.loop = true;
+
+  const kickSeq = new Tone.Sequence(
+    (time, stepIdx) => {
+      if (layerState.isSilenced("kick")) return;
+      const hit = patternStore.get("kick", stepIdx);
+      if (!hit) return;
+      layerRefs.kick.triggerAttackRelease("C1", "8n", time);
+      fireActivity("kick");
+    },
+    idxArray(KICK.length), "16n"
+  );
+  kickSeq.loop = true;
+
+  const snareSeq = new Tone.Sequence(
+    (time, stepIdx) => {
+      if (layerState.isSilenced("snare")) return;
+      const hit = patternStore.get("snare", stepIdx);
+      if (!hit) return;
+      layerRefs.snare.triggerAttackRelease("D#3", "16n", time);
+      fireActivity("snare");
+    },
+    idxArray(SNARE.length), "16n"
+  );
+  snareSeq.loop = true;
+
+  const hatSeq = new Tone.Sequence(
+    (time, stepIdx) => {
+      if (layerState.isSilenced("hat")) return;
+      const vel = patternStore.get("hat", stepIdx);
+      if (!vel || vel <= 0) return;
+      const v = humanizeVelocity(vel, 0.02);
+      layerRefs.hat.triggerAttackRelease("32n", time + humanizeTiming(0.003), v);
+      fireActivity("hat");
+    },
+    idxArray(HAT_VEL.length), "16n"
+  );
+  hatSeq.loop = true;
+
+  const hatSeqV2 = new Tone.Sequence(
+    (time, stepIdx) => {
+      if (layerState.isSilenced("hat")) return;
+      const vel = patternStore.get("hatV2", stepIdx);
+      if (!vel || vel <= 0) return;
+      const v = humanizeVelocity(vel, 0.02);
+      layerRefs.hat.triggerAttackRelease("32n", time + humanizeTiming(0.003), v);
+      fireActivity("hat");
+    },
+    idxArray(HAT_VEL_V2.length), "16n"
+  );
+  hatSeqV2.loop = true;
+
+  const openHatSeq = new Tone.Sequence(
+    (time, stepIdx) => {
+      if (layerState.isSilenced("open-hat")) return;
+      const hit = patternStore.get("open-hat", stepIdx);
+      if (!hit) return;
+      layerRefs["open-hat"].triggerAttackRelease("8n", time);
+      fireActivity("open-hat");
+    },
+    idxArray(OPEN_HAT.length), "16n"
+  );
+  openHatSeq.loop = true;
+
+  const accentSeq = new Tone.Sequence(
+    (time, stepIdx) => {
+      if (layerState.isSilenced("accent")) return;
+      const note = patternStore.get("accent", stepIdx);
+      if (note === null) return;
+      layerRefs.accent.triggerAttackRelease(note, "4n", time);
+      fireActivity("accent");
+    },
+    idxArray(HIGH_ACCENT.length), "8n"
+  );
+  accentSeq.loop = true;
 
   const subSeq = new Tone.Sequence(
     (time, note) => {
       const freq = Tone.Frequency(note).toFrequency();
-      subOsc.frequency.rampTo(freq, 0.15, time);
+      layerRefs.sub.setFrequency(freq, 0.15, time);
+      fireActivity("sub");
     },
     SUB_ROOT, "1m"
   );
   subSeq.loop = true;
 
-  // ── 808 Accents: sine + manual pitch envelope + distortion ──
-  const eightOsc = new Tone.Oscillator({ type: "sine", frequency: "C#1" });
-  const eightEnv = new Tone.AmplitudeEnvelope({
-    attack: 0.001, decay: 0.25, sustain: 0.15, release: 0.1,
-  });
-  const eightDist = new Tone.Distortion({ distortion: 0.8 });
-  const eightFilter = new Tone.Filter({ frequency: 200, type: "lowpass", rolloff: -12 });
-  eightOsc.chain(eightEnv, eightDist, eightFilter, eightCh);
-
-  // ── Kick: membrane synth ──
-  const kick = new Tone.MembraneSynth({
-    pitchDecay: 0.05,
-    octaves: 6,
-    envelope: { attack: 0.001, decay: 0.3, sustain: 0, release: 0.3 },
-  });
-  kick.connect(kickCh);
-
-  // ── Snare: noise burst (high-passed) + sine body ──
-  const snareNoise = new Tone.NoiseSynth({
-    noise: { type: "white" },
-    envelope: { attack: 0.001, decay: 0.12, sustain: 0, release: 0.08 },
-  });
-  const snareHPF = new Tone.Filter({ frequency: 5000, type: "highpass", rolloff: -12 });
-  snareNoise.chain(snareHPF, snareCh);
-
-  const snareBody = new Tone.Synth({
-    oscillator: { type: "sine" },
-    envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.05 },
-  });
-  snareBody.connect(snareCh);
-
-  // ── Closed Hi-hat: bandpassed noise, very short ──
-  const hihat = new Tone.NoiseSynth({
-    noise: { type: "white" },
-    envelope: { attack: 0.001, decay: 0.04, sustain: 0, release: 0.04 },
-  });
-  const hatBPF = new Tone.Filter({ frequency: 6000, type: "bandpass", Q: 1.2 });
-  hihat.chain(hatBPF, hatCh);
-
-  // ── Open Hi-hat: bandpassed noise, longer decay ──
-  const openHat = new Tone.NoiseSynth({
-    noise: { type: "white" },
-    envelope: { attack: 0.001, decay: 0.2, sustain: 0.03, release: 0.15 },
-  });
-  const openHatBPF = new Tone.Filter({ frequency: 5500, type: "bandpass", Q: 1 });
-  openHat.chain(openHatBPF, openHatCh);
-
-  // ── Dark Pad: sawtooth chord + slow auto-filter ──
-  const padSynth = new Tone.PolySynth(Tone.Synth, {
-    oscillator: { type: "sawtooth" },
-    envelope: { attack: 1, decay: 0.3, sustain: 0.3, release: 2 },
-  });
-  const padAutoFilter = new Tone.AutoFilter({
-    frequency: 0.0625,
-    baseFrequency: 250,
-    octaves: 0.85,
-    type: "sine",
-  }).start();
-  padSynth.chain(padAutoFilter, padCh);
-
-  // ── High Accent: ghostly sine, long tail ──
-  const accentSynth = new Tone.Synth({
-    oscillator: { type: "sine" },
-    envelope: { attack: 0.05, decay: 0.6, sustain: 0.1, release: 0.8 },
-  });
-  accentSynth.connect(accentCh);
-
-  // ── Sequences ──
-
-  const melSeq = new Tone.Sequence(
-    (time, note) => {
-      if (note === null) return;
-      melSynth.triggerAttackRelease(note, "4n", time + humanizeTiming(0.003));
-    },
-    MELODY, "8n"
-  );
-  melSeq.loop = true;
-
-  const eightSeq = new Tone.Sequence(
-    (time, note) => {
-      if (note === null) return;
-      const freq = Tone.Frequency(note).toFrequency();
-      eightOsc.frequency.setValueAtTime(freq * 2, time);
-      eightOsc.frequency.exponentialRampToValueAtTime(freq, time + 0.06);
-      eightEnv.triggerAttackRelease(0.25, time);
-    },
-    BASS_808, "8n"
-  );
-  eightSeq.loop = true;
-
-  const kickSeq = new Tone.Sequence(
-    (time, hit) => {
-      if (!hit) return;
-      kick.triggerAttackRelease("C1", "8n", time);
-    },
-    KICK, "16n"
-  );
-  kickSeq.loop = true;
-
-  const snareSeq = new Tone.Sequence(
-    (time, hit) => {
-      if (!hit) return;
-      snareNoise.triggerAttackRelease("16n", time);
-      snareBody.triggerAttackRelease("D#3", "16n", time);
-    },
-    SNARE, "16n"
-  );
-  snareSeq.loop = true;
-
-  const hatSeq = new Tone.Sequence(
-    (time, vel) => {
-      const v = humanizeVelocity(vel, 0.02);
-      hihat.triggerAttackRelease("32n", time + humanizeTiming(0.003), v);
-    },
-    HAT_VEL, "16n"
-  );
-  hatSeq.loop = true;
-
-  const hatSeqV2 = new Tone.Sequence(
-    (time, vel) => {
-      const v = humanizeVelocity(vel, 0.02);
-      hihat.triggerAttackRelease("32n", time + humanizeTiming(0.003), v);
-    },
-    HAT_VEL_V2, "16n"
-  );
-  hatSeqV2.loop = true;
-
-  const openHatSeq = new Tone.Sequence(
-    (time, hit) => {
-      if (!hit) return;
-      openHat.triggerAttackRelease("8n", time);
-    },
-    OPEN_HAT, "16n"
-  );
-  openHatSeq.loop = true;
-
-  const accentSeq = new Tone.Sequence(
-    (time, note) => {
-      if (note === null) return;
-      accentSynth.triggerAttackRelease(note, "4n", time);
-    },
-    HIGH_ACCENT, "8n"
-  );
-  accentSeq.loop = true;
-
   const padPart = new Tone.Part(
     (time, chord) => {
-      padSynth.triggerAttackRelease(chord, "1m + 2n", time);
+      layerRefs.pad.triggerAttackRelease(chord, "1m + 2n", time);
+      fireActivity("pad");
     },
     [["0:0:0", ["C#3", "E3", "G#3"]]]
   );
   padPart.loop = true;
   padPart.loopEnd = "2m";
+
+  // ── Macros (targets go through layerRefs) ──
+  const macros = createMacros({
+    "dark-bright": {
+      label: "DARK / BRIGHT",
+      targets: [
+        { param: (v) => { const f = layerRefs.melody.getParam("filter"); if (f) f.frequency.value = v; }, min: 800, max: 5000, curve: 1.5 },
+        { param: (v) => { const f = layerRefs.hat.getParam("filter"); if (f) f.frequency.value = v; },    min: 3000, max: 10000 },
+        { param: (v) => { const f = layerRefs.pad.getParam("autoFilter"); if (f) f.baseFrequency = v; }, min: 120, max: 500 },
+      ],
+    },
+    "grit": {
+      label: "GRIT",
+      targets: [
+        { param: (v) => { const d = layerRefs["808"].getParam("dist"); if (d) d.distortion = v; }, min: 0.3, max: 1.0, curve: 0.49 },
+        { param: (v) => { const f = layerRefs["808"].getParam("filter"); if (f) f.frequency.value = v; }, min: 280, max: 420 },
+        { param: (v) => { const c = layerRefs.melody.getParam("crush"); if (c) c.bits.value = v; }, min: 16, max: 2, curve: 1.8 },
+        { param: (v) => { const f = layerRefs.melody.getParam("postFilter"); if (f) f.frequency.value = v; }, min: 3000, max: 4000 },
+        { param: (v) => { const w = layerRefs.melody.getParam("waveshaper"); if (w) w.order = Math.round(v); }, min: 1, max: 5 },
+      ],
+    },
+    "space": {
+      label: "SPACE",
+      targets: [
+        { param: (v) => { mixer.fx.reverbChannel.volume.value = v; }, min: -24, max: 12 },
+        { param: (v) => { mixer.fx.delayChannel.volume.value = v; },  min: -24, max: 8 },
+      ],
+    },
+    "weight": {
+      label: "WEIGHT",
+      targets: [
+        { param: (v) => { const e = layerRefs["808"].getParam("env"); if (e) e.decay = v; }, min: 0.1, max: 0.6 },
+        { param: (v) => { subCh.volume.value = v; savedVolumes["sub"] = v; }, min: -20, max: 0 },
+        { param: (v) => { const s = layerRefs.kick.getParam("synth"); if (s) s.envelope.decay = v; }, min: 0.15, max: 0.5 },
+      ],
+    },
+    "bounce": {
+      label: "BOUNCE",
+      targets: [
+        { param: (v) => { Tone.getTransport().swing = v; }, min: 0, max: 0.5 },
+      ],
+    },
+  });
 
   // ── Sequence map for gating ──
   const SEQ_MAP = {
@@ -330,40 +427,40 @@ export function createDarkTrapTrack(mixer) {
     sectionChangeCb?.(name);
   }
 
-  // Apply mix automation (volume/filter) for a section
   function applyMix(name, instant) {
-    const r = instant ? 0 : undefined; // flag for ramp times
+    melAutoVol.volume.cancelScheduledValues(Tone.now());
+    const mf = layerRefs.melody.getParam("filter");
+    if (mf) mf.frequency.cancelScheduledValues(Tone.now());
+    vinylGain.gain.cancelScheduledValues(Tone.now());
 
-    // Cancel any in-flight ramps so new values take cleanly
-    melCh.volume.cancelScheduledValues(Tone.now());
-    melFilter.frequency.cancelScheduledValues(Tone.now());
+    const vinylOn = ["verse-1", "verse-2", "hook-1", "hook-2", "hook-3", "outro"].includes(name);
+    rampParam(vinylGain.gain, vinylOn ? 1 : 0, instant ? 0 : 0.8);
 
     switch (name) {
       case "intro":
-        rampParam(melCh.volume, -20, instant ? 0 : 0.1);
-        rampParam(melFilter.frequency, 800, instant ? 0 : 0.5);
+        rampParam(melAutoVol.volume, -10, instant ? 0 : 0.1);
+        if (mf) rampParam(mf.frequency, 800, instant ? 0 : 0.5);
         break;
       case "verse-1":
       case "verse-2":
-        rampParam(melCh.volume, -16, instant ? 0 : 0.1);
-        rampParam(melFilter.frequency, 2500, instant ? 0 : 0.5);
+        rampParam(melAutoVol.volume, -6, instant ? 0 : 0.1);
+        if (mf) rampParam(mf.frequency, 2500, instant ? 0 : 0.5);
         break;
       case "hook-1":
       case "hook-2":
-        rampParam(melCh.volume, -10, instant ? 0 : 0.05);
-        rampParam(melFilter.frequency, 3000, instant ? 0 : 0.3);
+        rampParam(melAutoVol.volume, 0, instant ? 0 : 0.05);
+        if (mf) rampParam(mf.frequency, 3000, instant ? 0 : 0.3);
         break;
       case "breakdown":
-        rampParam(melCh.volume, -14, instant ? 0 : 0.2);
-        rampParam(melFilter.frequency, 1200, instant ? 0 : 1.0);
+        rampParam(melAutoVol.volume, -4, instant ? 0 : 0.2);
+        if (mf) rampParam(mf.frequency, 1200, instant ? 0 : 1.0);
         break;
       case "hook-3":
-        rampParam(melCh.volume, -10, instant ? 0 : 0.02);
-        rampParam(melFilter.frequency, 3200, instant ? 0 : 0.2);
+        rampParam(melAutoVol.volume, 0, instant ? 0 : 0.02);
+        if (mf) rampParam(mf.frequency, 3200, instant ? 0 : 0.2);
         break;
       case "outro":
-        rampParam(melCh.volume, -10, 0.01);
-        // Master fade to silence over ~6 seconds
+        rampParam(melAutoVol.volume, 0, 0.01);
         mixer.master.volume.cancelScheduledValues(Tone.now());
         mixer.master.volume.rampTo(-Infinity, 6);
         break;
@@ -383,41 +480,35 @@ export function createDarkTrapTrack(mixer) {
   function start(fromBar = 0) {
     const t = Tone.getTransport();
 
-    // Clean slate — clear any previous arrangement
     scheduledIds.forEach(id => t.clear(id));
     scheduledIds = [];
     allSequences.forEach(s => { s.stop(0); s.cancel(0); });
     padPart.stop(0);
     padPart.cancel(0);
 
-    // Reset master volume (may have been faded by previous outro)
     mixer.master.volume.cancelScheduledValues(Tone.now());
     mixer.master.volume.value = 0;
 
-    // Start persistent oscillators
-    try { subOsc.stop(); } catch (_) { /* not started yet */ }
-    try { eightOsc.stop(); } catch (_) { /* not started yet */ }
-    subOsc.start();
-    eightOsc.start();
+    // Stop and restart continuous-source layers
+    for (const name of STARTABLE_LAYERS) {
+      layerRefs[name].stop();
+      layerRefs[name].start();
+    }
 
-    // ── Continuous layers ──
     const origin = `${fromBar}m`;
     subSeq.start(origin);
     padPart.start(origin);
 
-    // Pad: starts silent in intro, at normal volume otherwise
     padCh.volume.cancelScheduledValues(Tone.now());
     if (fromBar < 4) {
       padCh.volume.value = -40;
-      sched(() => padCh.volume.rampTo(-18, 6), 0); // fade in over intro
+      sched(() => padCh.volume.rampTo(-18, 6), 0);
     } else {
       padCh.volume.value = -18;
     }
 
-    // Melody: enters at bar 2, continuous through end
     melSeq.start(fromBar < 2 ? "2m" : origin);
 
-    // ── Gated layers — derive windows from LAYER_MAP ──
     for (const [name, seq] of Object.entries(SEQ_MAP)) {
       const windows = getSequenceWindows(name);
       for (const w of windows) {
@@ -428,13 +519,11 @@ export function createDarkTrapTrack(mixer) {
       }
     }
 
-    // ── Find starting section and apply its mix state ──
     const secIdx = SECTIONS.findIndex(s => fromBar >= s.start && fromBar < s.end);
     const startSec = SECTIONS[Math.max(0, secIdx)];
     setSection(startSec.name);
     applyMix(startSec.name, true);
 
-    // ── Schedule future section transitions ──
     for (const sec of SECTIONS) {
       if (sec.start <= fromBar) continue;
       sched(() => {
@@ -443,14 +532,17 @@ export function createDarkTrapTrack(mixer) {
       }, sec.start);
     }
 
-    // ── Auto-stop at bar 68 ──
     sched(() => {
       cleanup();
       setSection("stopped");
     }, 68);
+
+    // Apply continuous mutes in case anything was muted before starting
+    applyContinuousMutes();
+
+    playhead.start();
   }
 
-  // Internal cleanup — stops sequences/oscillators, clears schedules
   function cleanup() {
     const t = Tone.getTransport();
     scheduledIds.forEach(id => t.clear(id));
@@ -460,15 +552,27 @@ export function createDarkTrapTrack(mixer) {
     padPart.stop(0);
     padPart.cancel(0);
 
-    try { subOsc.stop(); } catch (_) {}
-    try { eightOsc.stop(); } catch (_) {}
+    // Stop continuous-source layers
+    for (const name of STARTABLE_LAYERS) {
+      layerRefs[name].stop();
+    }
 
-    // Cancel any in-flight automation
-    melCh.volume.cancelScheduledValues(Tone.now());
-    melFilter.frequency.cancelScheduledValues(Tone.now());
+    if (melHeld) {
+      try { layerRefs.melody.triggerRelease(); } catch (_) {}
+      melHeld = false;
+    }
+
+    melAutoVol.volume.cancelScheduledValues(Tone.now());
+    melAutoVol.volume.value = 0;
+    const mf = layerRefs.melody.getParam("filter");
+    if (mf) mf.frequency.cancelScheduledValues(Tone.now());
+    vinylGain.gain.cancelScheduledValues(Tone.now());
+    vinylGain.gain.value = 0;
     padCh.volume.cancelScheduledValues(Tone.now());
     mixer.master.volume.cancelScheduledValues(Tone.now());
     mixer.master.volume.value = 0;
+
+    playhead.stop();
   }
 
   function stop() {
@@ -482,40 +586,111 @@ export function createDarkTrapTrack(mixer) {
     mixer.master.volume.rampTo(db, 0.05);
   }
 
-  function getSection() {
-    return currentSection;
+  function getSection() { return currentSection; }
+  function getSections() { return SECTIONS; }
+
+  // ── Preset Swap ──
+  function swapPreset(layerName, presetId) {
+    const preset = getPreset(layerName, presetId);
+    if (!preset) return false;
+    const ref = layerRefs[layerName];
+    if (!ref) return false;
+
+    // Release held melody note before disposing old synth
+    if (layerName === "melody" && melHeld) {
+      try { ref.triggerRelease(); } catch (_) {}
+      melHeld = false;
+    }
+
+    const output = outputMap[layerName];
+    const built = preset.build(output);
+    ref.swap(built, presetId);
+
+    // If transport running and this is a startable layer, start the new preset
+    const isRunning = Tone.getTransport().state === "started";
+    if (isRunning && STARTABLE_LAYERS.includes(layerName)) {
+      ref.start();
+    }
+
+    // Re-apply macros so the new preset gets current knob values
+    macros.applyAll();
+
+    return true;
   }
 
-  function getSections() {
-    return SECTIONS;
+  function getActivePresets() {
+    const result = {};
+    for (const name of LAYER_NAMES) {
+      result[name] = layerRefs[name].getPresetId();
+    }
+    return result;
   }
 
+  // ── Dispose ──
   function dispose() {
     stop();
+    // Dispose all layer refs (disposes underlying presets)
+    for (const ref of Object.values(layerRefs)) {
+      ref.dispose();
+    }
+    // Dispose sequences
     subSeq.dispose(); melSeq.dispose(); eightSeq.dispose();
     kickSeq.dispose(); snareSeq.dispose();
     hatSeq.dispose(); hatSeqV2.dispose(); openHatSeq.dispose();
     accentSeq.dispose();
     padPart.dispose();
-    melSynth.dispose(); melFilter.dispose(); melCrush.dispose(); melPostFilter.dispose();
-    subOsc.dispose(); subFilter.dispose();
-    eightOsc.dispose(); eightEnv.dispose();
-    eightDist.dispose(); eightFilter.dispose();
-    kick.dispose();
-    snareNoise.dispose(); snareHPF.dispose(); snareBody.dispose();
-    hihat.dispose(); hatBPF.dispose();
-    openHat.dispose(); openHatBPF.dispose();
-    accentSynth.dispose();
-    padSynth.dispose(); padAutoFilter.dispose();
+    // Dispose fixed intermediary nodes
+    melAutoVol.dispose();
+    vinylGain.dispose();
   }
 
+  // ── Controls (mixer faders) ──
+  function getControls() {
+    return [
+      { name: "melody",   label: "MELODY",   group: "levels", get: () => melCh.volume.value,     set: (v) => { melCh.volume.value = v; savedVolumes["melody"] = v; },     min: -40, max: 0,    step: 1,    unit: "dB", default: -36 },
+      { name: "sub-bass", label: "SUB",      group: "levels", get: () => subCh.volume.value,     set: (v) => { subCh.volume.value = v; savedVolumes["sub"] = v; },         min: -40, max: 0,    step: 1,    unit: "dB", default: -6 },
+      { name: "808",      label: "808",      group: "levels", get: () => eightCh.volume.value,   set: (v) => { eightCh.volume.value = v; savedVolumes["808"] = v; },       min: -40, max: 0,    step: 1,    unit: "dB", default: -8 },
+      { name: "kick",     label: "KICK",     group: "levels", get: () => kickCh.volume.value,    set: (v) => { kickCh.volume.value = v; savedVolumes["kick"] = v; },       min: -40, max: 0,    step: 1,    unit: "dB", default: -6 },
+      { name: "snare",    label: "SNARE",    group: "levels", get: () => snareCh.volume.value,   set: (v) => { snareCh.volume.value = v; savedVolumes["snare"] = v; },     min: -40, max: 0,    step: 1,    unit: "dB", default: -8 },
+      { name: "hat",      label: "HAT",      group: "levels", get: () => hatCh.volume.value,     set: (v) => { hatCh.volume.value = v; savedVolumes["hat"] = v; },         min: -40, max: 0,    step: 1,    unit: "dB", default: -12 },
+      { name: "open-hat", label: "O-HAT",    group: "levels", get: () => openHatCh.volume.value, set: (v) => { openHatCh.volume.value = v; savedVolumes["open-hat"] = v; }, min: -40, max: 0,    step: 1,    unit: "dB", default: -10 },
+      { name: "pad",      label: "PAD",      group: "levels", get: () => padCh.volume.value,     set: (v) => { padCh.volume.value = v; savedVolumes["pad"] = v; },         min: -40, max: 0,    step: 1,    unit: "dB", default: -18 },
+      { name: "accent",   label: "ACCENT",   group: "levels", get: () => accentCh.volume.value,  set: (v) => { accentCh.volume.value = v; savedVolumes["accent"] = v; },   min: -40, max: 0,    step: 1,    unit: "dB", default: -14 },
+      { name: "vinyl",    label: "VINYL",    group: "levels", get: () => vinylCh.volume.value,   set: (v) => { vinylCh.volume.value = v; savedVolumes["vinyl"] = v; },     min: -60, max: -30,  step: 1,    unit: "dB", default: -54 },
+      { name: "portamento",  label: "GLIDE",     group: "synth", get: () => { const s = layerRefs.melody.getParam("synth"); return s?.portamento ?? 0.08; },              set: (v) => { const s = layerRefs.melody.getParam("synth"); if (s) s.set({ portamento: v }); }, min: 0,   max: 0.3,  step: 0.01, unit: "s",  default: 0.08 },
+      { name: "808-filter",  label: "808 FILT",  group: "synth", get: () => { const f = layerRefs["808"].getParam("filter"); return f?.frequency?.value ?? 350; },         set: (v) => { const f = layerRefs["808"].getParam("filter"); if (f) f.frequency.value = v; }, min: 100, max: 800,  step: 10,   unit: "Hz", default: 350 },
+      { name: "808-drive",   label: "808 DRIVE", group: "synth", get: () => { const d = layerRefs["808"].getParam("dist"); return d?.distortion ?? 0.8; },                set: (v) => { const d = layerRefs["808"].getParam("dist"); if (d) d.distortion = v; },        min: 0,   max: 1,    step: 0.05, unit: "",   default: 0.8 },
+      { name: "mel-filter",  label: "MEL FILT",  group: "synth", get: () => { const f = layerRefs.melody.getParam("filter"); return f?.frequency?.value ?? 3200; },        set: (v) => { const f = layerRefs.melody.getParam("filter"); if (f) f.frequency.value = v; },   min: 500, max: 5000, step: 50,   unit: "Hz", default: 3200 },
+    ];
+  }
+
+  // ── Public API ──
   return {
     start,
     stop,
     setVolume,
     getSection,
     getSections,
+    getControls,
     onSectionChange: (fn) => { sectionChangeCb = fn; },
     dispose,
+    // Studio API
+    layerState,
+    macros,
+    patternStore,
+    playhead,
+    getLayerNames: () => LAYER_NAMES,
+    getActivity: () => ({ ...activity }),
+    onActivity: (fn) => {
+      activityListeners.push(fn);
+      return () => {
+        const idx = activityListeners.indexOf(fn);
+        if (idx >= 0) activityListeners.splice(idx, 1);
+      };
+    },
+    // Preset API
+    swapPreset,
+    getPresets: (layer) => getPresets(layer),
+    getActivePresets,
   };
 }
